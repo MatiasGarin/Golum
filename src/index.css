@@ -1,0 +1,451 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   DESIGN TOKENS (ported from mockup.html :root / [data-theme=dark])
+   ============================================================ */
+:root {
+  --pr: #2563eb;
+  --pr-h: #1d4ed8;
+  --pr-l: #eff6ff;
+  --bg: #f1f5f9;
+  --card: #fff;
+  --sb: #1e293b;
+  --sb-h: #334155;
+  --sb-a: #2563eb;
+  --inp: #fff;
+  --mod: #fff;
+  --ov: rgba(0, 0, 0, 0.5);
+  --t1: #0f172a;
+  --t2: #64748b;
+  --tm: #94a3b8;
+  --tsb: #cbd5e1;
+  --bd: #e2e8f0;
+  --bdf: #2563eb;
+  --ok: #22c55e;
+  --ok-l: #f0fdf4;
+  --wa: #f59e0b;
+  --wa-l: #fffbeb;
+  --er: #ef4444;
+  --er-l: #fef2f2;
+  --in: #3b82f6;
+  --in-l: #eff6ff;
+  --pu: #8b5cf6;
+  --pu-l: #f5f3ff;
+}
+
+[data-theme='dark'] {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --sb: #0a1628;
+  --sb-h: #1e2d4a;
+  --inp: #1e293b;
+  --mod: #1e293b;
+  --t1: #f1f5f9;
+  --t2: #94a3b8;
+  --tm: #64748b;
+  --bd: #334155;
+  --ok-l: #052e16;
+  --wa-l: #451a03;
+  --er-l: #450a0a;
+  --in-l: #172554;
+  --pu-l: #2e1065;
+}
+
+/* ============================================================
+   COMPONENT PRIMITIVES (extracted with @apply — buttons, badges,
+   inputs, card) so JSX stays readable while using Tailwind.
+   ============================================================ */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-[6px] whitespace-nowrap rounded-r border border-transparent px-[14px] py-[7px] text-[13px] font-semibold transition-all duration-150;
+  }
+  .btn-sm {
+    @apply rounded-md px-[10px] py-[5px] text-[12px];
+  }
+  .btn-pr {
+    @apply btn bg-pr text-white border-pr hover:bg-pr-h hover:border-pr-h;
+  }
+  .btn-ol {
+    @apply btn border-bd bg-transparent text-t2 hover:bg-bg hover:text-t1;
+  }
+  .btn-ok {
+    @apply btn bg-ok text-white border-ok hover:brightness-95;
+  }
+  .btn-er {
+    @apply btn bg-er text-white border-er hover:brightness-95;
+  }
+  .btn-gh {
+    @apply inline-flex items-center justify-center gap-[6px] whitespace-nowrap rounded-r border-none bg-transparent px-[8px] py-[5px] text-[13px] font-semibold text-t2 transition-all duration-150 hover:bg-bg hover:text-t1;
+  }
+
+  /* Badge base — color variants (.bg-gn etc.) live in plain CSS below. */
+  .bg {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-rf px-2 py-[3px] text-[11px] font-semibold;
+  }
+
+  /* Cards */
+  .card {
+    @apply overflow-hidden rounded-rl border border-bd bg-card shadow-sh0;
+  }
+  .ch {
+    @apply flex items-center justify-between gap-[10px] border-b border-bd px-[18px] py-[14px];
+  }
+  .cht {
+    @apply text-[13px] font-semibold text-t1;
+  }
+
+  /* Filter bar + filter inputs */
+  .fb {
+    @apply mb-[14px] flex flex-wrap items-center gap-2 rounded-rl border border-bd bg-card px-[14px] py-[10px] shadow-sh0;
+  }
+  .fi {
+    @apply min-w-[160px] flex-1 rounded-md border border-bd bg-inp px-[11px] py-[6px] text-[13px] text-t1 outline-none transition-all focus:border-bdf focus:shadow-[0_0_0_3px_rgba(37,99,235,.12)];
+  }
+  .fs {
+    @apply cursor-pointer rounded-md border border-bd bg-inp px-[10px] py-[6px] text-[13px] text-t1 outline-none transition-all focus:border-bdf focus:shadow-[0_0_0_3px_rgba(37,99,235,.12)];
+  }
+
+  /* Form fields */
+  .fg {
+    @apply mb-[14px];
+  }
+  .fl {
+    @apply mb-[5px] block text-[11px] font-semibold uppercase tracking-[.4px] text-t2;
+  }
+  .fin {
+    @apply w-full rounded-r border border-bd bg-inp px-[11px] py-2 text-[13px] text-t1 outline-none transition-all focus:border-bdf focus:shadow-[0_0_0_3px_rgba(37,99,235,.12)];
+  }
+  .fsel {
+    @apply fin cursor-pointer;
+  }
+  .fgrid {
+    @apply grid grid-cols-2 gap-3;
+  }
+  .fhint {
+    @apply mt-[3px] text-[11px] text-tm;
+  }
+
+  /* Page header */
+  .ph {
+    @apply mb-5 flex flex-wrap items-center justify-between gap-[10px];
+  }
+  .ph-t {
+    @apply text-[20px] font-extrabold tracking-[-.3px] text-t1;
+  }
+  .ph-s {
+    @apply mt-[2px] text-[12px] text-t2;
+  }
+
+  /* Quick list rows */
+  .ql {
+    @apply flex items-center gap-[9px] border-b border-bd px-[18px] py-[9px] transition-colors last:border-b-0 hover:bg-bg;
+  }
+  .ql-inf {
+    @apply min-w-0 flex-1;
+  }
+  .ql-n {
+    @apply overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold text-t1;
+  }
+  .ql-d {
+    @apply mt-px text-[11px] text-tm;
+  }
+
+  /* Empty state */
+  .empty {
+    @apply px-5 py-10 text-center text-tm;
+  }
+  .empty-ico {
+    @apply mx-auto mb-[14px] flex h-[50px] w-[50px] items-center justify-center rounded-full bg-bg text-tm;
+  }
+  .empty-t {
+    @apply mb-1 text-[13px] font-semibold text-t2;
+  }
+
+  /* Table — scoped to .tbl to avoid leaking global element styles */
+  .tw {
+    @apply overflow-x-auto;
+  }
+  .tbl {
+    @apply w-full border-collapse;
+  }
+  .tbl thead th {
+    @apply whitespace-nowrap border-b border-bd bg-bg px-[14px] py-[9px] text-left text-[11px] font-semibold uppercase tracking-[.4px] text-t2;
+  }
+  .tbl tbody tr {
+    @apply border-b border-bd transition-colors last:border-b-0 hover:bg-bg;
+  }
+  .tbl tbody td {
+    @apply px-[14px] py-[11px] align-middle text-[13px] text-t1;
+  }
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--t1);
+  line-height: 1.5;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+  overflow-x: hidden;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Avatar palette (fixed per-employee, ported from mockup.html) */
+.av {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.av1 { background: #dbeafe; color: #1d4ed8; }
+.av2 { background: #fce7f3; color: #9d174d; }
+.av3 { background: #d1fae5; color: #065f46; }
+.av4 { background: #ede9fe; color: #5b21b6; }
+.av5 { background: #fef3c7; color: #92400e; }
+.av6 { background: #fee2e2; color: #991b1b; }
+[data-theme='dark'] .av1 { background: #1e3a8a; color: #93c5fd; }
+[data-theme='dark'] .av2 { background: #831843; color: #fbcfe8; }
+[data-theme='dark'] .av3 { background: #064e3b; color: #6ee7b7; }
+[data-theme='dark'] .av4 { background: #2e1065; color: #c4b5fd; }
+[data-theme='dark'] .av5 { background: #78350f; color: #fde68a; }
+[data-theme='dark'] .av6 { background: #7f1d1d; color: #fca5a5; }
+
+/* Badge color variants (text colors differ in dark mode) */
+.bg-gn { background: var(--ok-l); color: #166534; }
+.bg-rd { background: var(--er-l); color: #991b1b; }
+.bg-am { background: var(--wa-l); color: #92400e; }
+.bg-bl { background: var(--in-l); color: #1e40af; }
+.bg-pu { background: var(--pu-l); color: #5b21b6; }
+.bg-gy { background: #f1f5f9; color: #475569; }
+[data-theme='dark'] .bg-gn { background: #052e16; color: #4ade80; }
+[data-theme='dark'] .bg-rd { background: #450a0a; color: #f87171; }
+[data-theme='dark'] .bg-am { background: #451a03; color: #fbbf24; }
+[data-theme='dark'] .bg-bl { background: #172554; color: #60a5fa; }
+[data-theme='dark'] .bg-pu { background: #2e1065; color: #a78bfa; }
+[data-theme='dark'] .bg-gy { background: #1e293b; color: #94a3b8; }
+
+/* Heatmap cells */
+.hm-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.1s;
+}
+.hm-cell:hover { transform: scale(1.3); }
+.hm-c-pr { background: #22c55e; }
+.hm-c-ta { background: #f59e0b; }
+.hm-c-au { background: #ef4444; }
+.hm-c-nl { background: var(--bd); }
+.hm-c-fu { background: var(--bg); border: 1px solid var(--bd); }
+.hm-c-em { background: transparent; }
+
+/* Calendar */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-dh { text-align: center; font-size: 10px; font-weight: 700; color: var(--tm); text-transform: uppercase; letter-spacing: 0.4px; padding: 5px 0; }
+.cal-d {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.18s ease;
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t2);
+  position: relative;
+  min-height: 44px;
+}
+.cal-d:hover { border-color: var(--pr); background: var(--pr-l); }
+.cal-d.today { border-color: var(--ok); }
+.cal-d.sel { border-color: var(--pr); background: var(--pr-l); color: var(--pr); }
+[data-theme='dark'] .cal-d.sel { background: rgba(37, 99, 235, 0.2); }
+.cal-d.nl { background: transparent; color: var(--tm); cursor: default; }
+.cal-d.nl:hover { border-color: transparent; background: transparent; }
+.d-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 3px; }
+.d-pr { background: var(--ok); }
+.d-ta { background: var(--wa); }
+.d-au { background: var(--er); }
+
+/* Month selector bar */
+.ms-bar { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--bd); border-radius: 14px; padding: 10px 18px; margin-bottom: 14px; box-shadow: var(--sh0); flex-wrap: wrap; }
+.ms-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--bd); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.18s ease; color: var(--t2); }
+.ms-btn:hover { background: var(--bg); color: var(--t1); }
+.ms-lbl { font-size: 14px; font-weight: 700; color: var(--t1); }
+
+/* ============================================================
+   TOOLTIPS (data-tip), ported 1:1 from mockup.html
+   ============================================================ */
+[data-tip] {
+  position: relative;
+  cursor: help;
+}
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 7px 11px;
+  border-radius: 8px;
+  white-space: pre-line;
+  width: max-content;
+  max-width: 200px;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+[data-tip]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1e293b;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+[data-tip]:hover::after,
+[data-tip]:hover::before {
+  opacity: 1;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+/* Modal enter (overlay) */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-in { animation: fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-in-scale { animation: scale-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Page enter (no transform to preserve fixed descendants) */
+@keyframes fsi {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes tin {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tout {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateX(16px); }
+}
+@keyframes pls {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); }
+  70% { box-shadow: 0 0 0 9px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+.anim-fsi { animation: fsi 0.18s ease forwards; }
+.anim-tin { animation: tin 0.25s ease; }
+.anim-tout { animation: tout 0.25s ease forwards; }
+.pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4);
+  animation: pls 2s infinite;
+  flex-shrink: 0;
+}
+.pulse.off {
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+  animation: none;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tm); }
+
+/* Fichaje panel buttons (on blue gradient) */
+.btn-f {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 20px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.btn-f-pr {
+  background: white;
+  color: #1e3a8a;
+}
+.btn-f-pr:hover {
+  background: #eff6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+.btn-f-se {
+  background: rgba(255, 255, 255, 0.13);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+}
+.btn-f-se:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.btn-f-dis {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+}
+
+/* Time input picker indicator on dark fichaje panel */
+.fp-time::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+}
