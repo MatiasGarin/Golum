@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
+// Namespace base del demo (estable entre versiones).
+export const STORE_NS = 'golum:'
 // Prefijo versionado: subir la versión invalida cualquier estado guardado con
 // un esquema viejo (evita romper la app si cambian las formas del seed).
-export const STORE_PREFIX = 'golum:v1:'
+export const STORE_PREFIX = STORE_NS + 'v2:'
 
 /**
  * useState que se persiste en localStorage bajo `STORE_PREFIX + key`.
@@ -39,12 +41,16 @@ export function usePersistentState<T>(key: string, initial: () => T): [T, Dispat
   return [state, setState]
 }
 
-/** Borra todo el estado persistido del demo (útil para reset). */
+/**
+ * Borra todo el estado persistido del demo (útil para reset). Limpia el namespace
+ * completo (`golum:`), no sólo la versión actual, para que el reset funcione aunque
+ * hayan quedado claves de un esquema anterior (`golum:v1:`, etc.).
+ */
 export function clearPersistedState() {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i)
-      if (k && k.startsWith(STORE_PREFIX)) localStorage.removeItem(k)
+      if (k && k.startsWith(STORE_NS)) localStorage.removeItem(k)
     }
   } catch {
     /* no-op */

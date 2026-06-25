@@ -4,7 +4,8 @@ import { useData } from '../../store/DataContext'
 import { useToast } from '../../store/ToastContext'
 import { EMP_ID } from '../../data/seed'
 import { fd, novTip, p2, shiftSummary } from '../../lib/format'
-import { Badge, StatusBadge } from '../../components/ui/Badge'
+import { pendienteDeResolucion } from '../../lib/novedad'
+import { Badge, NovStatusBadge } from '../../components/ui/Badge'
 import { MetricCard } from '../../components/ui/MetricCard'
 import { IconCalendar, IconAlertCircle, IconBell, IconLogin, IconLogout, IconClock, IconCheck } from '../../components/ui/icons'
 import type { FichType } from '../../types'
@@ -26,7 +27,7 @@ export function Inicio() {
   }, [])
 
   const empNovs = novedades.filter((n) => n.eId === EMP_ID)
-  const pendNovs = empNovs.filter((n) => n.st === 'pendiente')
+  const pendNovs = empNovs.filter(pendienteDeResolucion)
   const mTard = empNovs.filter((n) => n.d1.startsWith('2026-06') && n.type === 'Tardanza').length
   const mDias = fichadas.filter((f) => f.eId === EMP_ID && f.type === 'entrada' && f.dt.startsWith('2026-06')).length
   const lastFichs = [...fichadas].filter((f) => f.eId === EMP_ID && f.type === 'entrada').sort((a, b) => b.dt.localeCompare(a.dt)).slice(0, 5)
@@ -111,7 +112,7 @@ export function Inicio() {
           label="Nov. pendientes"
           value={pendNovs.length}
           sub={<Link to="/emp/novedades" className="text-pr">Ver →</Link>}
-          tip="Novedades tuyas que aún no fueron aprobadas o rechazadas por el administrador."
+          tip="Justificaciones tuyas en revisión y horas extra pendientes de autorización."
         />
       </div>
 
@@ -143,7 +144,7 @@ export function Inicio() {
                 <div className="ql-n" data-tip={novTip(n.type)}>{n.type}</div>
                 <div className="ql-d">{fd(n.d1)} · {n.qty}</div>
               </div>
-              <StatusBadge st={n.st} />
+              <NovStatusBadge n={n} />
             </div>
           ))}
           <div className="px-[18px] py-[10px]">

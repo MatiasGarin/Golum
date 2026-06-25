@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Employee, FichType, Fichada, Novedad, Shift, ShiftKind, Solicitud } from '../types'
+import type { Employee, FichType, Fichada, Novedad, NovStatus, Shift, ShiftKind, Solicitud } from '../types'
 import { EMPS, SHIFTS, FICHADAS, NOVEDADES, SOLICITUDES, TODAY, ADMIN_ID, EMP_ID } from '../data/seed'
 import { detectTardanza, detectHorasExtra, detectExcesoDescanso, detectSalidaAnticipada, evalFlexible, isWithinPeriod, diasLicencia } from '../lib/rules'
+import { esLicencia } from '../lib/novedad'
 import { fd } from '../lib/format'
 import { usePersistentState } from '../hooks/usePersistentState'
 
@@ -38,13 +39,16 @@ interface DataCtx {
   toggleUser: (id: number) => 'activo' | 'inactivo'
   addFichadaManual: (eId: number, type: 'entrada' | 'salida', fecha: string, hora: string) => FichajeResult
   addNovedadManual: (n: { eId: number; type: string; d1: string; d2: string | null; qty: string; obs: string | null; just: string | null }) => void
-  approveNov: (id: number) => void
-  rejectNov: (id: number) => void
+  /** Autoriza (ok) o rechaza una Hora Extra: habilita/excluye su pago en el reporte. */
+  autorizarHE: (id: number, ok: boolean) => void
+  /** Resuelve la justificación de un desvío: aprobada lo excluye del reporte. */
+  resolverJustificacion: (id: number, ok: boolean) => void
   saveShift: (shift: Shift) => void
   addShift: (kind: ShiftKind) => number
   // employee actions
   fichar: (type: FichType, hora: string) => FichajeResult
-  addSolicitudJustificativo: () => void
+  /** Adjunta un justificativo a una novedad propia y la deja pendiente de aprobación. */
+  pedirJustificacion: (novId: number, doc: string | null, obs: string | null) => void
   addSolicitudLicencia: (tipo: string, fi: string, ff: string) => void
 }
 
@@ -104,10 +108,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [fichadas],
   )
 
-  const pushNov = useCallback((eId: number, type: string, fecha: string, qty: string, obs: string) => {
+  // Los desvíos nacen `registrada` (firmes, cuentan siempre). Las HE nacen
+  // `pendiente` porque requieren autorización del admin para pagarse.
+  const pushNov = useCallback((eId: number, type: string, fecha: string, qty: string, obs: string, st: NovStatus = 'registrada') => {
     setNovedades((prev) => [
       ...prev,
-      { id: newId(), eId, type, d1: fecha, d2: null, qty, org: 'automática', st: 'pendiente', obs, resBy: null, resAt: null },
+      { id: newId(), eId, type, d1: fecha, d2: null, qty, org: 'automática', st, obs, justSt: null, resBy: null, resAt: null },
     ])
   }, [])
 
@@ -130,7 +136,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (entryHora) {
           const { shortfall, overtime } = evalFlexible(entryHora, hora, sh)
           if (overtime > 0) {
-            pushNov(eId, 'Horas extra 50%', fecha, `${overtime} min`, 'Excedente sobre las horas a cumplir (jornada flexible).')
+            pushNov(eId, 'Horas extra 50%', fecha, `${overtime} min`, 'Excedente sobre las horas a cumplir (jornada flexible). Requiere autorización.', 'pendiente')
             result.horasExtra = overtime
           } else if (shortfall > 0) {
             pushNov(eId, 'Jornada incompleta', fecha, `${shortfall} min`, 'No completó las horas a cumplir dentro de la ventana flexible.')
@@ -139,7 +145,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       } else {
         const diff = detectHorasExtra(hora, sh)
         if (diff > 0) {
-          pushNov(eId, 'Horas extra 50%', fecha, `${diff} min`, 'Generada automáticamente al registrar la fichada de salida.')
+          pushNov(eId, 'Horas extra 50%', fecha, `${diff} min`, 'Generada automáticamente al registrar la fichada de salida. Requiere autorización.', 'pendiente')
           result.horasExtra = diff
         }
       }
@@ -149,17 +155,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
 
   const addNovedadManual = useCallback<DataCtx['addNovedadManual']>((n) => {
+    // HE manual → pendiente de autorización. Licencias → ya justificadas (el admin
+    // las carga con su documentación). Ausencia genérica / desvíos → registrados:
+    // injustificados salvo que luego se apruebe una justificación.
+    const st: NovStatus = n.type === 'Horas extra 50%' || n.type === 'Horas extra 100%' ? 'pendiente' : 'registrada'
+    const justSt = esLicencia(n.type) ? 'aprobada' : null
     setNovedades((prev) => [
       ...prev,
-      { id: newId(), eId: n.eId, type: n.type, d1: n.d1, d2: n.d2, qty: n.qty, org: 'manual', st: 'pendiente', obs: n.obs, just: n.just, resBy: null, resAt: null },
+      {
+        id: newId(), eId: n.eId, type: n.type, d1: n.d1, d2: n.d2, qty: n.qty, org: 'manual',
+        st, justSt, obs: n.obs, just: n.just,
+        resBy: justSt === 'aprobada' ? 'Rodríguez, María' : null,
+        resAt: justSt === 'aprobada' ? TODAY : null,
+      },
     ])
   }, [])
 
-  const resolveNov = useCallback((id: number, st: 'aprobada' | 'rechazada') => {
-    setNovedades((prev) => prev.map((n) => (n.id === id ? { ...n, st, resBy: 'Rodríguez, María', resAt: TODAY } : n)))
+  // Autorización de Horas Extra (gate sobre `st`).
+  const autorizarHE = useCallback((id: number, ok: boolean) => {
+    setNovedades((prev) => prev.map((n) => (n.id === id ? { ...n, st: ok ? 'aprobada' : 'rechazada', resBy: 'Rodríguez, María', resAt: TODAY } : n)))
   }, [])
-  const approveNov = useCallback((id: number) => resolveNov(id, 'aprobada'), [resolveNov])
-  const rejectNov = useCallback((id: number) => resolveNov(id, 'rechazada'), [resolveNov])
+
+  // Resolución de la justificación de un desvío (gate sobre `justSt`).
+  const resolverJustificacion = useCallback((id: number, ok: boolean) => {
+    setNovedades((prev) => prev.map((n) => (n.id === id ? { ...n, justSt: ok ? 'aprobada' : 'rechazada', resBy: 'Rodríguez, María', resAt: TODAY } : n)))
+  }, [])
 
   const saveShift = useCallback((shift: Shift) => {
     setShifts((prev) => prev.map((s) => (s.id === shift.id ? shift : s)))
@@ -224,7 +244,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (interpret && sh.kind === 'flexible') {
         const { shortfall, overtime } = evalFlexible(eEntry, hora, sh)
         if (overtime > 0) {
-          pushNov(EMP_ID, 'Horas extra 50%', date, `${overtime} min`, 'Excedente sobre las horas a cumplir (jornada flexible).')
+          pushNov(EMP_ID, 'Horas extra 50%', date, `${overtime} min`, 'Excedente sobre las horas a cumplir (jornada flexible). Requiere autorización.', 'pendiente')
           result.horasExtra = overtime
         } else if (shortfall > 0) {
           pushNov(EMP_ID, 'Jornada incompleta', date, `${shortfall} min`, 'No completó las horas a cumplir dentro de la ventana flexible.')
@@ -232,7 +252,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       } else if (interpret) {
         const diff = detectHorasExtra(hora, sh)
         if (diff > 0) {
-          pushNov(EMP_ID, 'Horas extra 50%', date, `${diff} min`, 'Generada automáticamente al fichar salida.')
+          pushNov(EMP_ID, 'Horas extra 50%', date, `${diff} min`, 'Generada automáticamente al fichar salida. Requiere autorización.', 'pendiente')
           result.horasExtra = diff
         }
         const ant = detectSalidaAnticipada(hora, sh)
@@ -245,16 +265,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return result
   }, [gShift, eEntry, eBreakStart, eBreakTaken, pushNov])
 
-  const addSolicitudJustificativo = useCallback(() => {
-    setSolicitudes((prev) => [...prev, { id: newId(), eId: EMP_ID, type: 'Justificativo de tardanza o ausencia', sentAt: TODAY, period: '18/06/2026', st: 'pendiente', resp: null }])
-  }, [])
+  // El empleado adjunta un justificativo a una de sus novedades registradas:
+  // queda pendiente de aprobación. Mientras tanto el desvío sigue contando.
+  const pedirJustificacion = useCallback((novId: number, doc: string | null, obs: string | null) => {
+    const nov = novedades.find((n) => n.id === novId)
+    setNovedades((prev) => prev.map((n) => (n.id === novId ? { ...n, justSt: 'pendiente', just: doc, justObs: obs, resBy: null, resAt: null } : n)))
+    setSolicitudes((prev) => [
+      ...prev,
+      { id: newId(), eId: EMP_ID, type: 'Justificativo de tardanza o ausencia', sentAt: TODAY, period: nov ? fd(nov.d1) : TODAY, st: 'pendiente', resp: null },
+    ])
+  }, [novedades])
 
+  // Solicitud de licencia: crea la novedad de licencia con su justificación
+  // pendiente (hasta que el admin la apruebe cuenta como ausencia injustificada).
   const addSolicitudLicencia = useCallback((tipo: string, fi: string, ff: string) => {
     const dias = diasLicencia(fi, ff)
+    const licType = tipo === 'Médica' ? 'Licencia médica' : tipo === 'Examen' ? 'Licencia examen' : tipo === 'Vacaciones anticipadas' ? 'Vacaciones' : 'Permiso especial'
     setSolicitudes((prev) => [...prev, { id: newId(), eId: EMP_ID, type: 'Solicitud de licencia', sentAt: TODAY, period: `${fd(fi)} – ${fd(ff)}`, st: 'pendiente', resp: null }])
     setNovedades((prev) => [
       ...prev,
-      { id: newId(), eId: EMP_ID, type: `Licencia ${tipo.toLowerCase()}`, d1: fi, d2: ff, qty: `${dias} día${dias !== 1 ? 's' : ''}`, org: 'manual', st: 'pendiente', obs: 'Originada desde solicitud del empleado.', resBy: null, resAt: null },
+      { id: newId(), eId: EMP_ID, type: licType, d1: fi, d2: ff, qty: `${dias} día${dias !== 1 ? 's' : ''}`, org: 'manual', st: 'registrada', justSt: 'pendiente', obs: 'Originada desde solicitud del empleado.', resBy: null, resAt: null },
     ])
   }, [])
 
@@ -263,10 +293,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       emps, shifts, fichadas, novedades, solicitudes, currentUser,
       eState, eEntry, eExit, eBreakStart,
       gEmp, gShift, login, logout,
-      toggleUser, addFichadaManual, addNovedadManual, approveNov, rejectNov, saveShift, addShift,
-      fichar, addSolicitudJustificativo, addSolicitudLicencia,
+      toggleUser, addFichadaManual, addNovedadManual, autorizarHE, resolverJustificacion, saveShift, addShift,
+      fichar, pedirJustificacion, addSolicitudLicencia,
     }),
-    [emps, shifts, fichadas, novedades, solicitudes, currentUser, eState, eEntry, eExit, eBreakStart, gEmp, gShift, login, logout, toggleUser, addFichadaManual, addNovedadManual, approveNov, rejectNov, saveShift, addShift, fichar, addSolicitudJustificativo, addSolicitudLicencia],
+    [emps, shifts, fichadas, novedades, solicitudes, currentUser, eState, eEntry, eExit, eBreakStart, gEmp, gShift, login, logout, toggleUser, addFichadaManual, addNovedadManual, autorizarHE, resolverJustificacion, saveShift, addShift, fichar, pedirJustificacion, addSolicitudLicencia],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

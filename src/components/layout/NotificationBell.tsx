@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useData } from '../../store/DataContext'
 import { EMP_ID } from '../../data/seed'
 import { fd } from '../../lib/format'
+import { pendienteDeResolucion, requiereAutorizacion } from '../../lib/novedad'
 import { Avatar } from '../ui/Avatar'
-import { StatusBadge } from '../ui/Badge'
+import { StatusBadge, NovStatusBadge } from '../ui/Badge'
 import { IconBell } from '../ui/icons'
 import type { Employee } from '../../types'
 
@@ -37,17 +38,18 @@ export function NotificationBell() {
 
   if (isAdmin) {
     items = novedades
-      .filter((n) => n.st === 'pendiente')
+      .filter(pendienteDeResolucion)
       .sort((a, b) => b.d1.localeCompare(a.d1))
       .map((n) => {
         const e = gEmp(n.eId)!
-        return { key: `n${n.id}`, avatar: e, title: e.name, sub: `${n.type} · ${fd(n.d1)}`, to: '/admin/novedades' }
+        const accion = requiereAutorizacion(n.type) ? 'a autorizar' : 'justif. pendiente'
+        return { key: `n${n.id}`, avatar: e, title: e.name, sub: `${n.type} · ${fd(n.d1)} · ${accion}`, to: '/admin/novedades' }
       })
   } else {
     const pend = novedades
-      .filter((n) => n.eId === EMP_ID && n.st === 'pendiente')
+      .filter((n) => n.eId === EMP_ID && pendienteDeResolucion(n))
       .sort((a, b) => b.d1.localeCompare(a.d1))
-      .map<NotifItem>((n) => ({ key: `n${n.id}`, title: n.type, sub: `${fd(n.d1)} · ${n.qty}`, badge: <StatusBadge st={n.st} />, to: '/emp/novedades' }))
+      .map<NotifItem>((n) => ({ key: `n${n.id}`, title: n.type, sub: `${fd(n.d1)} · ${n.qty}`, badge: <NovStatusBadge n={n} />, to: '/emp/novedades' }))
     const resueltas = solicitudes
       .filter((s) => s.eId === EMP_ID && s.st !== 'pendiente')
       .map<NotifItem>((s) => ({ key: `s${s.id}`, title: s.type, sub: `Respuesta del admin · ${fd(s.sentAt)}`, badge: <StatusBadge st={s.st} />, to: '/emp/solicitudes' }))

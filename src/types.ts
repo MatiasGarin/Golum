@@ -1,6 +1,20 @@
 export type Role = 'admin' | 'empleado' | 'contador'
 export type UserStatus = 'activo' | 'inactivo'
-export type NovStatus = 'pendiente' | 'aprobada' | 'rechazada'
+/**
+ * Estado de la novedad en sí.
+ * - `registrada`: hecho firme medido por el reloj (tardanza, salida anticipada,
+ *   ausencia, etc.). No necesita aprobación: cuenta siempre en el reporte.
+ * - `pendiente | aprobada | rechazada`: sólo aplica a las Horas Extra, que
+ *   requieren **autorización** del admin para entrar al reporte y pagarse.
+ */
+export type NovStatus = 'registrada' | 'pendiente' | 'aprobada' | 'rechazada'
+/**
+ * Estado de la **justificación** de un desvío (tardanza / salida anticipada /
+ * ausencia / exceso / jornada incompleta). `null` = sin justificar. Una
+ * justificación `aprobada` excluye el desvío de las faltas injustificadas /
+ * minutos tarde del reporte al contador.
+ */
+export type JustStatus = 'pendiente' | 'aprobada' | 'rechazada'
 export type NovOrigen = 'automática' | 'manual'
 export type FichType = 'entrada' | 'salida' | 'inicio-descanso' | 'fin-descanso'
 export type FichOrigen = 'biométrico' | 'manual' | 'qr'
@@ -86,7 +100,12 @@ export interface Novedad {
   obs: string | null
   resBy: string | null
   resAt: string | null
+  /** Estado de la justificación del desvío (null/undefined = sin justificar). */
+  justSt?: JustStatus | null
+  /** Documentación/URL del justificativo aportado. */
   just?: string | null
+  /** Comentario del empleado al pedir la justificación. */
+  justObs?: string | null
 }
 
 export interface Solicitud {

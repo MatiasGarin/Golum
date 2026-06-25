@@ -90,23 +90,36 @@ export const FICHADAS: Fichada[] = [
   { id: 142, eId: 6, type: 'entrada', dt: '2026-06-17 09:00', org: 'biométrico' }, { id: 143, eId: 6, type: 'salida', dt: '2026-06-17 18:00', org: 'biométrico' },
 ]
 
+// Nuevo modelo:
+//  - Los desvíos automáticos nacen `st: 'registrada'` (firmes, cuentan siempre).
+//    Lo que el admin resuelve es la JUSTIFICACIÓN (`justSt`): aprobada → se excluye
+//    del reporte; pendiente/rechazada/null → sigue contando.
+//  - Las Horas Extra usan `st` como gate de AUTORIZACIÓN (pendiente → aprobada/rechazada);
+//    sólo computan si están autorizadas.
+//  - "Ausencia" es un único tipo: justificada (lic) si `justSt === 'aprobada'`, si no injustificada.
 export const NOVEDADES: Novedad[] = [
-  { id: 1, eId: 2, type: 'Tardanza', d1: '2026-06-02', d2: null, qty: '6 min', org: 'automática', st: 'aprobada', obs: 'Detectada al momento del fichaje.', resBy: 'Rodríguez, María', resAt: '2026-06-03' },
-  { id: 2, eId: 2, type: 'Horas extra 50%', d1: '2026-06-03', d2: null, qty: '75 min', org: 'automática', st: 'aprobada', obs: 'Autorizada previamente.', resBy: 'Rodríguez, María', resAt: '2026-06-04' },
-  { id: 3, eId: 2, type: 'Tardanza', d1: '2026-06-09', d2: null, qty: '17 min', org: 'automática', st: 'pendiente', obs: null, resBy: null, resAt: null },
-  { id: 4, eId: 3, type: 'Tardanza', d1: '2026-06-02', d2: null, qty: '13 min', org: 'automática', st: 'aprobada', obs: null, resBy: 'Rodríguez, María', resAt: '2026-06-03' },
-  { id: 5, eId: 3, type: 'Ausencia injustificada', d1: '2026-06-10', d2: null, qty: '1 día', org: 'manual', st: 'pendiente', obs: 'No comunicó ausencia. Se intenta contactar.', resBy: null, resAt: null },
-  { id: 6, eId: 3, type: 'Horas extra 50%', d1: '2026-06-12', d2: null, qty: '45 min', org: 'automática', st: 'pendiente', obs: null, resBy: null, resAt: null },
-  { id: 7, eId: 4, type: 'Licencia médica', d1: '2026-06-10', d2: '2026-06-11', qty: '2 días', org: 'manual', st: 'aprobada', obs: 'Presentó certificado médico. Reposo indicado.', resBy: 'Rodríguez, María', resAt: '2026-06-12' },
-  { id: 8, eId: 4, type: 'Tardanza', d1: '2026-06-17', d2: null, qty: '20 min', org: 'automática', st: 'pendiente', obs: null, resBy: null, resAt: null },
-  { id: 9, eId: 5, type: 'Ausencia injustificada', d1: '2026-06-05', d2: null, qty: '1 día', org: 'manual', st: 'rechazada', obs: 'No justificó la ausencia.', resBy: 'Rodríguez, María', resAt: '2026-06-09' },
-  { id: 10, eId: 6, type: 'Horas extra 50%', d1: '2026-06-05', d2: null, qty: '75 min', org: 'automática', st: 'aprobada', obs: 'Cierre de proyecto. Autorizada.', resBy: 'Rodríguez, María', resAt: '2026-06-08' },
-  { id: 11, eId: 6, type: 'Tardanza', d1: '2026-06-09', d2: null, qty: '15 min', org: 'automática', st: 'pendiente', obs: null, resBy: null, resAt: null },
-  { id: 12, eId: 6, type: 'Ausencia injustificada', d1: '2026-06-10', d2: null, qty: '1 día', org: 'manual', st: 'pendiente', obs: 'Empleado no comunicó la ausencia.', resBy: null, resAt: null },
+  // Gómez, Carlos (2): tardanza firme sin justificar (cuenta), HE autorizada, tardanza con justif. pendiente (cuenta hasta resolver).
+  { id: 1, eId: 2, type: 'Tardanza', d1: '2026-06-02', d2: null, qty: '6 min', org: 'automática', st: 'registrada', justSt: null, obs: 'Detectada al momento del fichaje.', just: null, resBy: null, resAt: null },
+  { id: 2, eId: 2, type: 'Horas extra 50%', d1: '2026-06-03', d2: null, qty: '75 min', org: 'automática', st: 'aprobada', justSt: null, obs: 'Cierre de tareas. Autorizada por el admin.', just: null, resBy: 'Rodríguez, María', resAt: '2026-06-04' },
+  { id: 3, eId: 2, type: 'Tardanza', d1: '2026-06-09', d2: null, qty: '17 min', org: 'automática', st: 'registrada', justSt: 'pendiente', obs: 'Detectada al momento del fichaje.', just: 'https://drive.google.com/justif-trafico', justObs: 'Demora por corte de tránsito.', resBy: null, resAt: null },
+  // López, Ana (3): tardanza justificada (excluida del reporte), ausencia injustificada, HE pendiente de autorizar.
+  { id: 4, eId: 3, type: 'Tardanza', d1: '2026-06-02', d2: null, qty: '13 min', org: 'automática', st: 'registrada', justSt: 'aprobada', obs: 'Detectada al momento del fichaje.', just: 'https://drive.google.com/cert-medico-ana', justObs: 'Turno médico matutino.', resBy: 'Rodríguez, María', resAt: '2026-06-03' },
+  { id: 5, eId: 3, type: 'Ausencia', d1: '2026-06-10', d2: null, qty: '1 día', org: 'manual', st: 'registrada', justSt: null, obs: 'No comunicó la ausencia. Se intenta contactar.', just: null, resBy: null, resAt: null },
+  { id: 6, eId: 3, type: 'Horas extra 50%', d1: '2026-06-12', d2: null, qty: '45 min', org: 'automática', st: 'pendiente', justSt: null, obs: 'A la espera de autorización del admin.', just: null, resBy: null, resAt: null },
+  // Martínez, Diego (4): licencia médica (justificada por naturaleza), tardanza con justif. pendiente.
+  { id: 7, eId: 4, type: 'Licencia médica', d1: '2026-06-10', d2: '2026-06-11', qty: '2 días', org: 'manual', st: 'registrada', justSt: 'aprobada', obs: 'Presentó certificado médico. Reposo indicado.', just: 'https://drive.google.com/cert-diego', resBy: 'Rodríguez, María', resAt: '2026-06-12' },
+  { id: 8, eId: 4, type: 'Tardanza', d1: '2026-06-17', d2: null, qty: '20 min', org: 'automática', st: 'registrada', justSt: 'pendiente', obs: 'Detectada al momento del fichaje.', just: 'https://drive.google.com/justif-diego', justObs: 'Trámite personal impostergable.', resBy: null, resAt: null },
+  // Fernández, Laura (5): ausencia con justificación rechazada → cuenta como injustificada.
+  { id: 9, eId: 5, type: 'Ausencia', d1: '2026-06-05', d2: null, qty: '1 día', org: 'manual', st: 'registrada', justSt: 'rechazada', obs: 'Aportó documentación pero no resultó válida.', just: 'https://drive.google.com/just-laura', justObs: 'Adjunto constancia.', resBy: 'Rodríguez, María', resAt: '2026-06-09' },
+  // Pérez, Juan (6): HE autorizada, tardanza firme sin justificar, ausencia con justif. pendiente (su solicitud), salida anticipada sin justificar.
+  { id: 10, eId: 6, type: 'Horas extra 50%', d1: '2026-06-05', d2: null, qty: '75 min', org: 'automática', st: 'aprobada', justSt: null, obs: 'Cierre de proyecto. Autorizada.', just: null, resBy: 'Rodríguez, María', resAt: '2026-06-08' },
+  { id: 11, eId: 6, type: 'Tardanza', d1: '2026-06-09', d2: null, qty: '25 min', org: 'automática', st: 'registrada', justSt: null, obs: 'Detectada al momento del fichaje.', just: null, resBy: null, resAt: null },
+  { id: 12, eId: 6, type: 'Ausencia', d1: '2026-06-10', d2: null, qty: '1 día', org: 'manual', st: 'registrada', justSt: 'pendiente', obs: 'El empleado envió un justificativo; pendiente de revisión.', just: 'https://drive.google.com/just-juan-10', justObs: 'Tuve una urgencia familiar.', resBy: null, resAt: null },
+  { id: 13, eId: 6, type: 'Salida anticipada', d1: '2026-06-16', d2: null, qty: '30 min', org: 'automática', st: 'registrada', justSt: null, obs: 'Salida registrada antes del horario esperado del turno.', just: null, resBy: null, resAt: null },
 ]
 
 export const SOLICITUDES: Solicitud[] = [
-  { id: 1, eId: 6, type: 'Justificativo de ausencia', sentAt: '2026-06-10', period: '10/06/2026', st: 'pendiente', resp: null },
+  { id: 1, eId: 6, type: 'Justificativo de tardanza o ausencia', sentAt: '2026-06-11', period: '10/06/2026', st: 'pendiente', resp: null },
   { id: 2, eId: 6, type: 'Solicitud de licencia', sentAt: '2026-05-12', period: '15/05/2026 – 16/05/2026', st: 'aprobada', resp: 'Licencia aprobada. Recordá traer el certificado médico al reincorporarte.' },
 ]
 

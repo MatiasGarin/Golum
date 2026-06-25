@@ -3,8 +3,10 @@ import type { ReactNode } from 'react'
 import type { Employee } from '../../types'
 import { useTheme } from '../../store/ThemeContext'
 import { useData } from '../../store/DataContext'
+import { useConfirm } from '../../store/ConfirmContext'
+import { clearPersistedState } from '../../hooks/usePersistentState'
 import { useNavigate } from 'react-router-dom'
-import { IconClock, IconLogout, IconMoon, IconSun } from '../ui/icons'
+import { IconClock, IconLogout, IconMoon, IconSun, IconActivity } from '../ui/icons'
 
 export interface NavItem {
   to: string
@@ -30,13 +32,26 @@ export function Sidebar({
   onClose: () => void
 }) {
   const { theme, toggleTheme } = useTheme()
-  const { logout } = useData()
+  const { logout, currentUser } = useData()
+  const confirm = useConfirm()
   const navigate = useNavigate()
 
   const doLogout = () => {
     logout()
     navigate('/login')
   }
+
+  // Reset del demo: borra el estado persistido (golum:v2:*) y recarga con el seed.
+  const doReset = () =>
+    confirm({
+      title: 'Reiniciar demo',
+      msg: 'Se borrarán las fichadas, novedades y solicitudes guardadas en este navegador, y se volverá a los datos de muestra. ¿Continuar?',
+      type: 'danger',
+      cb: () => {
+        clearPersistedState()
+        window.location.reload()
+      },
+    })
 
   return (
     <>
@@ -97,6 +112,14 @@ export function Sidebar({
               Salir
             </button>
           </div>
+          {currentUser?.role === 'admin' && (
+            <div className="px-[11px] pt-1">
+              <button onClick={doReset} className="flex w-full items-center justify-center gap-1 rounded-md px-[6px] py-[6px] text-[11px] font-medium text-white/40 transition-all hover:bg-sb-h hover:text-white" title="Borra el estado guardado en este navegador y recarga los datos de muestra">
+                <IconActivity size={13} />
+                Reiniciar demo
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

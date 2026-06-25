@@ -1,83 +1,56 @@
 # Consolidación: del motor de reglas a la preliquidación
 
-> Estado actual: **no implementado**. Este documento describe el eslabón que
-> falta para que los eventos del motor (tardanza, salida anticipada, exceso de
-> descanso, horas extra, ausencias, licencias) se traduzcan en los números de la
-> preliquidación que recibe el contador.
+> Estado: **implementado** en `src/lib/liquidacion.ts`. El cierre de Junio se
+> consolida en vivo desde fichadas + novedades; Mayo queda como histórico estático.
 
-## El problema hoy
+## Modelo de aprobación (actual)
 
-El motor genera **novedades** y las guarda en `DataContext`, pero la tabla de
-preliquidación del cierre **no las usa para calcular**:
+La clave del diseño es **dónde vive la aprobación**:
 
-- `src/pages/admin/Cierre.tsx` arma los totales por empleado (días trabajados,
-  ausencias, tardanza en min, HE 50/100) leyendo `JUN_RES` / `MAY_RES`, que son
-  **arrays estáticos** de `src/data/seed.ts` (números escritos a mano).
-- Las novedades sólo se listan como detalle informativo al lado de esos totales.
-- Aprobar/rechazar (`src/hooks/useNovActions.ts`) sólo cambia `novedad.st`;
-  **nada recalcula** los totales.
-- Por lo mismo, **justificar una tardanza no recontempla nada**: el resumen no
-  se deriva de las novedades, así que el estado/justificación no impacta.
+- Los **desvíos automáticos** (Tardanza, Salida anticipada, Exceso de descanso,
+  Jornada incompleta) los mide el reloj: se registran **en firme**
+  (`Novedad.st = 'registrada'`) y **cuentan siempre** en el reporte. No necesitan
+  aprobación porque son hechos, no decisiones.
+- Lo que se aprueba es la **justificación** de un desvío
+  (`Novedad.justSt: 'pendiente' | 'aprobada' | 'rechazada'`, `null` = sin justificar).
+  Una justificación **aprobada excluye** ese desvío de las faltas injustificadas /
+  minutos del reporte. El empleado la pide desde *Solicitudes* (queda `pendiente`);
+  el admin la resuelve en *Novedades*.
+- Las **Horas Extra** son la excepción: requieren **autorización** del admin para
+  pagarse. Usan `st` como gate (`pendiente → aprobada/rechazada`) y sólo computan
+  si `st === 'aprobada'`.
 
-El eslabón faltante es la **consolidación**: agregar las novedades aprobadas +
-las fichadas del período → filas `ResRow` por empleado.
+La clasificación por tipo vive en `src/lib/novedad.ts`
+(`requiereAutorizacion`, `esJustificable`, `esLicencia`, `pendienteDeResolucion`).
 
-## ¿Front o backend?
-
-En el sistema real probablemente vive en el backend (.NET, servicio de dominio
-"motor de reglas"). Para que el **demo se sienta real**, conviene implementarla
-en el front, dentro de `DataContext`, computando `ResRow` en vez de leerlo del
-seed. La lógica de negocio es la misma; sólo cambia dónde corre.
-
-## Diseño propuesto
-
-Una función pura de consolidación, parametrizada por empresa (sin hardcodear
-umbrales, como pide el TP):
+## Función de consolidación
 
 ```
-consolidarPeriodo(empleadoId, periodo, { fichadas, novedades, horario, reglas })
-  → ResRow
+consolidarPeriodo(empleadoId, periodo, { fichadas, novedades }) → ResRow
 ```
 
 Pasos:
 
-1. **Días trabajados**: contar días del período con fichada de entrada (desde
-   `fichadas`).
-2. **Recorrer novedades aprobadas** del empleado en el período y acumular por
-   tipo según la tabla de efectos de abajo. Las `pendiente` / `rechazada` se
-   excluyen (decisión: ¿las pendientes bloquean el cierre o se ignoran?).
-3. **Clasificar ausencias** en justificadas vs injustificadas según el tipo de
-   novedad asociada.
-4. Devolver la fila consolidada (snapshot inmutable al cerrar).
+1. **Días trabajados**: días distintos del período con fichada de entrada.
+2. **Recorrer las novedades** del empleado en el período y acumular por tipo según
+   la tabla de abajo.
+3. Clasificar ausencias en justificadas (lic) vs injustificadas (inj) según `justSt`.
 
-## Tabla "novedad → efecto en liquidación" (a validar)
+## Tabla "novedad → efecto en liquidación"
 
-Cada fila es una **decisión de negocio** que hay que confirmar antes de codificar:
+| Novedad | Condición | Efecto en el resumen |
+|---------|-----------|----------------------|
+| Tardanza | `justSt !== 'aprobada'` | Suma minutos a `tMin` (si justificada, se excluye) |
+| Salida anticipada | `justSt !== 'aprobada'` | Suma minutos a `sAnt` |
+| Exceso de descanso | `justSt !== 'aprobada'` | Suma minutos a `exD` |
+| Jornada incompleta | `justSt !== 'aprobada'` | Suma minutos a `jInc` |
+| Horas extra 50% / 100% | `st === 'aprobada'` (autorizada) | Suma a `he50` / `he100` |
+| Ausencia | `justSt === 'aprobada'` → lic; si no → inj | Cuenta en `aus` |
+| Licencia* / Vacaciones / Permiso / Suspensión | `justSt === 'aprobada'` → lic | Cuenta en `aus` (cargadas ya justificadas) |
+| Jornada sin descanso | — | Informativo, sin impacto |
 
-| Novedad | Efecto propuesto en el resumen | Decisión pendiente |
-|---------|-------------------------------|--------------------|
-| Tardanza (aprobada, sin justificar) | Suma minutos a `tMin` | ¿Se descuenta del sueldo o sólo se informa? |
-| Tardanza (justificada) | **No** suma a `tMin` (o va a columna aparte) | ¿Justificada = se perdona del todo? |
-| Salida anticipada | Resta minutos de jornada / columna propia | ¿Resta del computable o sólo se documenta? |
-| Horas extra 50% | Suma a `he50` | — |
-| Horas extra 100% | Suma a `he100` | — |
-| Exceso de descanso | Minutos a descontar o aviso | ¿Descuenta o sólo alerta al admin? |
-| Jornada sin descanso | Incidente informativo | ¿Impacta liquidación? Probablemente no. |
-| Ausencia injustificada | Cuenta en `aus` como injustificada | Afecta presentismo/descuento. |
-| Ausencia / licencia justificada | Cuenta en `aus` como justificada | No descuenta; tratamiento según tipo (art. 208 LCT, etc.). |
-| Jornada incompleta (flexible) | Minutos faltantes / columna propia | ¿Descuenta proporcional? |
+## Conexión con "Generar resumen"
 
-## Cómo se conecta con "Generar resumen"
-
-`generarResumen` (hoy un stub que sólo pasa a borrador) pasaría a **calcular**
-las filas con `consolidarPeriodo` para todos los empleados activos del período.
-Al cerrar, ese resultado se congela como snapshot (espeja `CierreMensual`).
-"Regenerar" recomputa mientras el período esté en borrador.
-
-## Resumen de qué falta
-
-1. Definir/validar la tabla de efectos de arriba (reglas de negocio).
-2. Implementar `consolidarPeriodo` (función pura, parametrizable).
-3. Conectar `generarResumen` para que use la consolidación en vez de `JUN_RES`.
-4. Hacer que el cálculo respete `novedad.st` (sólo aprobadas) y la justificación.
-5. (Opcional) Persistir el snapshot del cierre.
+`Cierre.tsx` calcula las filas con `consolidarTodos` para todos los empleados
+activos del período (memoizado sobre fichadas + novedades). Al cerrar, el período
+pasa a `cerrado` (en el demo el snapshot es el cálculo en vivo).
