@@ -19,7 +19,7 @@ export const EMPS: Employee[] = [
 export const SHIFTS: Shift[] = [
   { id: 1, kind: 'fijo', name: 'Turno Mañana', st: 'activo', days: [1, 2, 3, 4, 5], bk: 30, entry: '08:00', exit: '16:00', tolE: 5, tolS: 10, heT: 30 },
   { id: 2, kind: 'rotativo', name: 'Turno Tarde (rotativo)', st: 'activo', days: [1, 2, 3, 4, 5], bk: 30, entry: '14:00', exit: '22:00', tolE: 5, tolS: 10, heT: 30, periodStart: '2026-06-01', periodEnd: '2026-06-30' },
-  { id: 3, kind: 'fijo', name: 'Turno Prueba (Noche)', st: 'activo', days: [1, 2, 3, 4, 5], bk: 10, entry: '19:00', exit: '23:50', tolE: 5, tolS: 5, heT: 30 },
+  { id: 3, kind: 'fijo', name: 'Turno Noche', st: 'activo', days: [1, 2, 3, 4, 5], bk: 10, entry: '19:00', exit: '23:50', tolE: 5, tolS: 5, heT: 30 },
   { id: 4, kind: 'flexible', name: 'Jornada Flexible', st: 'activo', days: [1, 2, 3, 4, 5], bk: 30, windowStart: '07:00', windowEnd: '20:00', hours: 8 },
 ]
 
@@ -110,18 +110,12 @@ export const SOLICITUDES: Solicitud[] = [
   { id: 2, eId: 6, type: 'Solicitud de licencia', sentAt: '2026-05-12', period: '15/05/2026 – 16/05/2026', st: 'aprobada', resp: 'Licencia aprobada. Recordá traer el certificado médico al reincorporarte.' },
 ]
 
+// Mayo es histórico (cerrado, sin fichadas de mayo en el seed para recomputar):
+// se mantiene estático. Junio ahora lo calcula el motor (src/lib/liquidacion.ts).
 export const MAY_RES: ResRow[] = [
-  { eId: 2, dt: 22, aus: '0', tMin: 12, he50: 60, he100: 0 },
-  { eId: 3, dt: 21, aus: '1 inj.', tMin: 8, he50: 45, he100: 0 },
-  { eId: 4, dt: 20, aus: '2 lic.', tMin: 0, he50: 0, he100: 0 },
-  { eId: 5, dt: 21, aus: '1 inj.', tMin: 0, he50: 0, he100: 0 },
-  { eId: 6, dt: 22, aus: '0', tMin: 5, he50: 0, he100: 0 },
-]
-
-export const JUN_RES: ResRow[] = [
-  { eId: 2, dt: 14, aus: '0', tMin: 23, he50: 75, he100: 0 },
-  { eId: 3, dt: 12, aus: '1 inj.', tMin: 13, he50: 45, he100: 0 },
-  { eId: 4, dt: 12, aus: '2 lic.', tMin: 20, he50: 0, he100: 0 },
-  { eId: 5, dt: 13, aus: '1 inj.', tMin: 0, he50: 0, he100: 0 },
-  { eId: 6, dt: 13, aus: '1 inj.', tMin: 15, he50: 75, he100: 0 },
+  { eId: 2, dt: 22, aus: '0', tMin: 12, he50: 60, he100: 0, sAnt: 0, exD: 0, jInc: 0 },
+  { eId: 3, dt: 21, aus: '1 inj.', tMin: 8, he50: 45, he100: 0, sAnt: 0, exD: 0, jInc: 0 },
+  { eId: 4, dt: 20, aus: '2 lic.', tMin: 0, he50: 0, he100: 0, sAnt: 0, exD: 0, jInc: 0 },
+  { eId: 5, dt: 21, aus: '1 inj.', tMin: 0, he50: 0, he100: 0, sAnt: 0, exD: 0, jInc: 0 },
+  { eId: 6, dt: 22, aus: '0', tMin: 5, he50: 0, he100: 0, sAnt: 0, exD: 0, jInc: 0 },
 ]

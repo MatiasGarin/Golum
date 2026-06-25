@@ -3,6 +3,7 @@ import type { Employee, FichType, Fichada, Novedad, Shift, ShiftKind, Solicitud 
 import { EMPS, SHIFTS, FICHADAS, NOVEDADES, SOLICITUDES, TODAY, ADMIN_ID, EMP_ID } from '../data/seed'
 import { detectTardanza, detectHorasExtra, detectExcesoDescanso, detectSalidaAnticipada, evalFlexible, isWithinPeriod, diasLicencia } from '../lib/rules'
 import { fd } from '../lib/format'
+import { usePersistentState } from '../hooks/usePersistentState'
 
 export type EmpFichajeState = 'sin-entrada' | 'en-jornada' | 'en-descanso' | 'jornada-completa'
 
@@ -50,20 +51,28 @@ interface DataCtx {
 const Ctx = createContext<DataCtx | null>(null)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [emps, setEmps] = useState<Employee[]>(() => EMPS.map((e) => ({ ...e })))
-  const [shifts, setShifts] = useState<Shift[]>(() => SHIFTS.map((s) => ({ ...s, days: [...s.days] })))
-  const [fichadas, setFichadas] = useState<Fichada[]>(() => FICHADAS.map((f) => ({ ...f })))
-  const [novedades, setNovedades] = useState<Novedad[]>(() => NOVEDADES.map((n) => ({ ...n })))
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>(() => SOLICITUDES.map((s) => ({ ...s })))
+  // Datos de dominio: persistidos en localStorage para sobrevivir a recargas.
+  const [emps, setEmps] = usePersistentState<Employee[]>('emps', () => EMPS.map((e) => ({ ...e })))
+  const [shifts, setShifts] = usePersistentState<Shift[]>('shifts', () => SHIFTS.map((s) => ({ ...s, days: [...s.days] })))
+  const [fichadas, setFichadas] = usePersistentState<Fichada[]>('fichadas', () => FICHADAS.map((f) => ({ ...f })))
+  const [novedades, setNovedades] = usePersistentState<Novedad[]>('novedades', () => NOVEDADES.map((n) => ({ ...n })))
+  const [solicitudes, setSolicitudes] = usePersistentState<Solicitud[]>('solicitudes', () => SOLICITUDES.map((s) => ({ ...s })))
+  // Identidad de sesión: NO se persiste (se vuelve a entrar tras recargar).
   const [currentUser, setCurrentUser] = useState<Employee | null>(null)
 
-  const [eState, setEState] = useState<EmpFichajeState>('sin-entrada')
-  const [eEntry, setEEntry] = useState('')
-  const [eExit, setEExit] = useState<string | null>(null)
-  const [eBreakStart, setEBreakStart] = useState<string | null>(null)
-  const [eBreakTaken, setEBreakTaken] = useState(false)
+  // Sesión de fichaje del empleado: se persiste para mantener coherencia con las fichadas.
+  const [eState, setEState] = usePersistentState<EmpFichajeState>('eState', () => 'sin-entrada')
+  const [eEntry, setEEntry] = usePersistentState('eEntry', () => '')
+  const [eExit, setEExit] = usePersistentState<string | null>('eExit', () => null)
+  const [eBreakStart, setEBreakStart] = usePersistentState<string | null>('eBreakStart', () => null)
+  const [eBreakTaken, setEBreakTaken] = usePersistentState('eBreakTaken', () => false)
 
-  const nextId = useRef(300)
+  // Contador de IDs derivado de los datos restaurados, para no colisionar tras recargar.
+  const nextId = useRef(0)
+  if (nextId.current === 0) {
+    const ids = [...emps.map((e) => e.id), ...shifts.map((s) => s.id), ...fichadas.map((f) => f.id), ...novedades.map((n) => n.id), ...solicitudes.map((s) => s.id)]
+    nextId.current = Math.max(300, ...ids) + 1
+  }
   const newId = () => nextId.current++
 
   const gEmp = useCallback((id: number) => emps.find((e) => e.id === id), [emps])

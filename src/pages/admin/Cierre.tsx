@@ -1,8 +1,9 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useData } from '../../store/DataContext'
 import { useToast } from '../../store/ToastContext'
 import { useConfirm } from '../../store/ConfirmContext'
-import { MAY_RES, JUN_RES } from '../../data/seed'
+import { MAY_RES } from '../../data/seed'
+import { consolidarTodos } from '../../lib/liquidacion'
 import { fd } from '../../lib/format'
 import { downloadCSV } from '../../lib/csv'
 import { Avatar } from '../../components/ui/Avatar'
@@ -15,12 +16,15 @@ const STEPS = ['Revisar fichadas', 'Validar novedades', 'Generar resumen', 'Expo
 type PeriodState = 'pendiente' | 'borrador' | 'cerrado'
 
 export function Cierre() {
-  const { novedades, gEmp } = useData()
+  const { emps, fichadas, novedades, gEmp } = useData()
   const toast = useToast()
   const confirm = useConfirm()
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   // Estado del período Junio 2026 (espeja CierreMensual.estado: borrador → cerrado).
   const [periodState, setPeriodState] = useState<PeriodState>('pendiente')
+
+  // Preliquidación de Junio consolidada en vivo por el motor desde fichadas + novedades.
+  const resumen = useMemo(() => consolidarTodos('2026-06', { emps, fichadas, novedades }), [emps, fichadas, novedades])
 
   const pend = novedades.filter((n) => n.st === 'pendiente' && n.d1.startsWith('2026-06')).length
   const generado = periodState !== 'pendiente'
@@ -50,10 +54,10 @@ export function Cierre() {
 
   const dlCSV = () => {
     if (!generado) return
-    const rows: (string | number)[][] = [['Empleado', 'Legajo', 'Días Trab.', 'Ausencias', 'Tard. (min)', 'HE 50% (min)', 'HE 100% (min)']]
-    JUN_RES.forEach((r) => {
+    const rows: (string | number)[][] = [['Empleado', 'Legajo', 'Días Trab.', 'Ausencias', 'Tard. (min)', 'HE 50% (min)', 'HE 100% (min)', 'Salida ant. (min)', 'Exc. desc. (min)', 'J. incompleta (min)']]
+    resumen.forEach((r) => {
       const e = gEmp(r.eId)!
-      rows.push([e.name, e.leg, r.dt, r.aus, r.tMin, r.he50, r.he100])
+      rows.push([e.name, e.leg, r.dt, r.aus, r.tMin, r.he50, r.he100, r.sAnt, r.exD, r.jInc])
     })
     downloadCSV('preliquidacion_junio_2026.csv', rows)
     toast('Archivo CSV descargado correctamente.', 'ok')
@@ -61,10 +65,10 @@ export function Cierre() {
 
   const confClose = () =>
     confirm({
-      title: 'Enviar y cerrar período',
+      title: 'Cerrar y enviar período',
       msg: pend > 0
-        ? `Hay ${pend} novedades pendientes. ¿Igualmente enviar y cerrar el período? Esta acción es irreversible.`
-        : '¿Enviar al contador y cerrar el período de Junio 2026? Esta acción es irreversible.',
+        ? `Hay ${pend} novedades pendientes. ¿Igualmente cerrar y enviar el período? Esta acción es irreversible.`
+        : '¿Cerrar y enviar al contador el período de Junio 2026? Esta acción es irreversible.',
       type: 'danger',
       cb: () => {
         setPeriodState('cerrado')
@@ -188,6 +192,9 @@ export function Cierre() {
                     <th className="cursor-help" data-tip="Minutos de tardanza del período (solo aprobadas).">Tard.</th>
                     <th className="cursor-help" data-tip="Minutos de horas extra al 50%.">HE 50%</th>
                     <th className="cursor-help" data-tip="Minutos de horas extra al 100%.">HE 100%</th>
+                    <th className="cursor-help" data-tip="Minutos de salida anticipada.">Salida ant.</th>
+                    <th className="cursor-help" data-tip="Minutos de exceso de descanso.">Exc. desc.</th>
+                    <th className="cursor-help" data-tip="Minutos faltantes de jornada (flexible).">J. incompleta</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -215,10 +222,13 @@ export function Cierre() {
                     <th className="cursor-help" data-tip="Minutos de tardanza.">Tard.</th>
                     <th className="cursor-help" data-tip="HE al 50%.">HE 50%</th>
                     <th className="cursor-help" data-tip="HE al 100%.">HE 100%</th>
+                    <th className="cursor-help" data-tip="Minutos de salida anticipada.">Salida ant.</th>
+                    <th className="cursor-help" data-tip="Minutos de exceso de descanso.">Exc. desc.</th>
+                    <th className="cursor-help" data-tip="Minutos faltantes de jornada (flexible).">J. incompleta</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {JUN_RES.map((r, i) => {
+                  {resumen.map((r, i) => {
                     const e = gEmp(r.eId)!
                     const eNovs = novedades.filter((n) => n.eId === r.eId && n.st !== 'rechazada' && n.d1.startsWith('2026-06'))
                     const isOpen = expanded.has(i)
@@ -240,10 +250,13 @@ export function Cierre() {
                           <td>{r.tMin > 0 ? <span className="font-semibold text-wa">{r.tMin} min</span> : <span className="text-tm">—</span>}</td>
                           <td>{r.he50 > 0 ? <span className="font-semibold text-in">{r.he50} min</span> : <span className="text-tm">—</span>}</td>
                           <td>{r.he100 > 0 ? <span className="font-semibold text-pu">{r.he100} min</span> : <span className="text-tm">—</span>}</td>
+                          <td>{r.sAnt > 0 ? <span className="font-semibold text-wa">{r.sAnt} min</span> : <span className="text-tm">—</span>}</td>
+                          <td>{r.exD > 0 ? <span className="font-semibold text-wa">{r.exD} min</span> : <span className="text-tm">—</span>}</td>
+                          <td>{r.jInc > 0 ? <span className="font-semibold text-wa">{r.jInc} min</span> : <span className="text-tm">—</span>}</td>
                         </tr>
                         {isOpen && (
                           <tr className="bg-bg">
-                            <td colSpan={7} className="py-[6px] pl-10 pr-[14px] text-[12px]">
+                            <td colSpan={10} className="py-[6px] pl-10 pr-[14px] text-[12px]">
                               <strong className="text-t2">Novedades del período:</strong>
                               <br />
                               {eNovs.length === 0 ? (
@@ -301,6 +314,9 @@ function ResTableRow({ r, gEmp }: { r: ResRow; gEmp: (id: number) => import('../
       <td>{r.tMin > 0 ? <span className="font-semibold text-wa">{r.tMin} min</span> : <span className="text-tm">—</span>}</td>
       <td>{r.he50 > 0 ? <span className="font-semibold text-in">{r.he50} min</span> : <span className="text-tm">—</span>}</td>
       <td>{r.he100 > 0 ? <span className="font-semibold text-pu">{r.he100} min</span> : <span className="text-tm">—</span>}</td>
+      <td>{r.sAnt > 0 ? <span className="font-semibold text-wa">{r.sAnt} min</span> : <span className="text-tm">—</span>}</td>
+      <td>{r.exD > 0 ? <span className="font-semibold text-wa">{r.exD} min</span> : <span className="text-tm">—</span>}</td>
+      <td>{r.jInc > 0 ? <span className="font-semibold text-wa">{r.jInc} min</span> : <span className="text-tm">—</span>}</td>
     </tr>
   )
 }

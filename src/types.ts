@@ -106,4 +106,7 @@ export interface ResRow {
   tMin: number
   he50: number
   he100: number
+  sAnt: number // salida anticipada (min)
+  exD: number // exceso de descanso (min)
+  jInc: number // jornada incompleta (min)
 }

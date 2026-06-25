@@ -49,7 +49,7 @@ export function Sidebar({
             <IconClock size={18} className="text-white" strokeWidth={2.5} />
           </div>
           <div>
-            <div className="text-[16px] font-extrabold tracking-[-.3px] text-white">GestRRHH</div>
+            <div className="text-[16px] font-extrabold tracking-[-.3px] text-white">Gestión de RRHH</div>
             <span className="mt-px block text-[9px] font-semibold uppercase tracking-[1px] text-white/40">{badgeText}</span>
           </div>
         </div>
