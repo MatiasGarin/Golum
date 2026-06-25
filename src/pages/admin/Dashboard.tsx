@@ -7,21 +7,22 @@ import { Badge } from '../../components/ui/Badge'
 import { AttendanceBar } from '../../components/charts/AttendanceBar'
 import { NovedadesDonut } from '../../components/charts/NovedadesDonut'
 import { useNovActions } from '../../hooks/useNovActions'
+import { pendienteDeResolucion, requiereAutorizacion } from '../../lib/novedad'
 import { Link } from 'react-router-dom'
 import { IconUsers, IconXCircle, IconAlertCircle, IconBell, IconCheck, IconX } from '../../components/ui/icons'
 
 export function Dashboard() {
   const { emps, fichadas, novedades, gEmp } = useData()
-  const { approve, reject } = useNovActions()
+  const { resolver } = useNovActions()
 
   const activeE = emps.filter((e) => e.role === 'empleado' && e.st === 'activo')
   const presentIds = [...new Set(fichadas.filter((f) => f.type === 'entrada' && f.dt.startsWith(TODAY)).map((f) => f.eId))]
   const present = presentIds.length
   const absent = activeE.length - present
   const tard = novedades.filter((n) => n.d1 === TODAY && n.type === 'Tardanza').length
-  const pend = novedades.filter((n) => n.st === 'pendiente').length
+  const pend = novedades.filter(pendienteDeResolucion).length
   const recent = [...fichadas].filter((f) => f.type === 'entrada').sort((a, b) => b.dt.localeCompare(a.dt)).slice(0, 5)
-  const pendNovs = novedades.filter((n) => n.st === 'pendiente').slice(0, 5)
+  const pendNovs = novedades.filter(pendienteDeResolucion).slice(0, 5)
   const novT: Record<string, number> = {}
   novedades.forEach((n) => {
     novT[n.type] = (novT[n.type] || 0) + 1
@@ -46,7 +47,7 @@ export function Dashboard() {
           label="Nov. pendientes"
           value={pend}
           sub={<Link to="/admin/novedades" className="text-pr">Revisar →</Link>}
-          tip="Novedades sin resolver. Deben ser aprobadas o rechazadas antes del cierre mensual."
+          tip="Horas extra a autorizar + justificaciones a resolver antes del cierre mensual."
         />
       </div>
 
@@ -115,11 +116,11 @@ export function Dashboard() {
                   <Avatar emp={e} />
                   <div className="ql-inf">
                     <div className="ql-n">{e.name}</div>
-                    <div className="ql-d" data-tip={novTip(n.type)}>{n.type} · {fd(n.d1)}</div>
+                    <div className="ql-d" data-tip={novTip(n.type)}>{n.type} · {fd(n.d1)} · {requiereAutorizacion(n.type) ? 'a autorizar' : 'justif. pendiente'}</div>
                   </div>
                   <div className="flex gap-1">
-                    <button className="btn-ok btn-sm" onClick={() => approve(n.id)}><IconCheck size={12} /></button>
-                    <button className="btn-er btn-sm" onClick={() => reject(n.id)}><IconX size={12} /></button>
+                    <button className="btn-ok btn-sm" title={requiereAutorizacion(n.type) ? 'Autorizar' : 'Aprobar justificación'} onClick={() => resolver(n, true)}><IconCheck size={12} /></button>
+                    <button className="btn-er btn-sm" title="Rechazar" onClick={() => resolver(n, false)}><IconX size={12} /></button>
                   </div>
                 </div>
               )

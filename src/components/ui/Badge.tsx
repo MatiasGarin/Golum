@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import type { Role, NovStatus, NovOrigen, UserStatus, FichOrigen } from '../../types'
+import type { Role, NovStatus, NovOrigen, UserStatus, FichOrigen, JustStatus, Novedad } from '../../types'
+import { requiereAutorizacion, esJustificable } from '../../lib/novedad'
 
 type BadgeColor = 'gn' | 'rd' | 'am' | 'bl' | 'pu' | 'gy'
 
@@ -23,6 +24,7 @@ export function RoleBadge({ role }: { role: Role }) {
 
 export function StatusBadge({ st }: { st: NovStatus | UserStatus }) {
   const map: Record<string, [BadgeColor, string]> = {
+    registrada: ['bl', 'Registrada'],
     pendiente: ['pu', 'Pendiente'],
     aprobada: ['gn', 'Aprobada'],
     rechazada: ['rd', 'Rechazada'],
@@ -31,6 +33,41 @@ export function StatusBadge({ st }: { st: NovStatus | UserStatus }) {
   }
   const [c, l] = map[st] ?? (['gy', st] as [BadgeColor, string])
   return <Badge color={c}>{l}</Badge>
+}
+
+/** Estado de autorización de una Hora Extra (pendiente / autorizada / rechazada). */
+export function AutBadge({ st }: { st: NovStatus }) {
+  const map: Record<string, [BadgeColor, string, string]> = {
+    pendiente: ['pu', 'A autorizar', 'Hora extra pendiente de autorización: aún no se computa ni paga.'],
+    aprobada: ['gn', 'Autorizada', 'Hora extra autorizada: se computa y paga en el reporte.'],
+    rechazada: ['rd', 'No autorizada', 'Hora extra rechazada: no se paga.'],
+  }
+  const [c, l, tip] = map[st] ?? (['gy', st, ''] as [BadgeColor, string, string])
+  return <Badge color={c} tip={tip}>{l}</Badge>
+}
+
+/** Estado de la justificación de un desvío. `null` = sin justificar. */
+export function JustBadge({ justSt }: { justSt: JustStatus | null | undefined }) {
+  const map: Record<string, [BadgeColor, string, string]> = {
+    pendiente: ['pu', 'Justif. pendiente', 'El empleado pidió justificar; falta resolver. El desvío sigue contando.'],
+    aprobada: ['gn', 'Justificada', 'Justificación aprobada: excluida de las faltas/minutos del reporte.'],
+    rechazada: ['rd', 'Justif. rechazada', 'Justificación denegada: el desvío cuenta en el reporte.'],
+  }
+  if (!justSt) return <Badge color="gy" tip="Sin justificación: el desvío cuenta en el reporte.">Sin justificar</Badge>
+  const [c, l, tip] = map[justSt] ?? (['gy', justSt, ''] as [BadgeColor, string, string])
+  return <Badge color={c} tip={tip}>{l}</Badge>
+}
+
+/**
+ * Badge de estado de una novedad, eligiendo la semántica correcta:
+ *  - Horas extra → estado de autorización.
+ *  - Desvíos justificables → estado de justificación.
+ *  - Resto (informativos / licencias ya justificadas) → estado simple.
+ */
+export function NovStatusBadge({ n }: { n: Novedad }) {
+  if (requiereAutorizacion(n.type)) return <AutBadge st={n.st} />
+  if (esJustificable(n.type)) return <JustBadge justSt={n.justSt} />
+  return <StatusBadge st={n.st} />
 }
 
 export function OrigenBadge({ org }: { org: NovOrigen }) {

@@ -3,8 +3,9 @@ import { useData } from '../../store/DataContext'
 import { useToast } from '../../store/ToastContext'
 import { TODAY } from '../../data/seed'
 import { fd, novTip, novTipoMeta, NOVEDAD_TYPES } from '../../lib/format'
+import { pendienteDeResolucion, requiereAutorizacion } from '../../lib/novedad'
 import { Avatar } from '../../components/ui/Avatar'
-import { OrigenBadge, StatusBadge, RoleBadge } from '../../components/ui/Badge'
+import { OrigenBadge, NovStatusBadge, AutBadge, JustBadge, RoleBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { useNovActions } from '../../hooks/useNovActions'
 import { IconPlus, IconCheck, IconX, IconBell } from '../../components/ui/icons'
@@ -15,7 +16,7 @@ const EMPTY_FILT = { q: '', tipo: '', st: '', org: '' }
 export function Novedades() {
   const { novedades, emps, gEmp, addNovedadManual } = useData()
   const toast = useToast()
-  const { approve, reject } = useNovActions()
+  const { resolver } = useNovActions()
   const activeEmps = emps.filter((e) => e.role === 'empleado' && e.st === 'activo')
 
   const [filt, setFilt] = useState(EMPTY_FILT)
@@ -23,12 +24,19 @@ export function Novedades() {
   const [detId, setDetId] = useState<number | null>(null)
   const [form, setForm] = useState({ eId: activeEmps[0]?.id ?? 0, tipo: 'Tardanza', fi: TODAY, ff: '', qty: '', just: '', obs: '' })
 
+  const situacion = (n: Novedad): 'pend' | 'ok' | 'no' => {
+    if (pendienteDeResolucion(n)) return 'pend'
+    if (n.justSt === 'aprobada' || (requiereAutorizacion(n.type) && n.st === 'aprobada')) return 'ok'
+    if (n.justSt === 'rechazada' || (requiereAutorizacion(n.type) && n.st === 'rechazada')) return 'no'
+    return 'ok' // desvío registrado sin justificación pendiente: nada que resolver
+  }
+
   let list = [...novedades].sort((a, b) => b.d1.localeCompare(a.d1))
   if (filt.q) list = list.filter((n) => gEmp(n.eId)!.name.toLowerCase().includes(filt.q.toLowerCase()))
   if (filt.tipo) list = list.filter((n) => n.type === filt.tipo)
-  if (filt.st) list = list.filter((n) => n.st === filt.st)
+  if (filt.st) list = list.filter((n) => situacion(n) === filt.st)
   if (filt.org) list = list.filter((n) => n.org === filt.org)
-  const pend = novedades.filter((n) => n.st === 'pendiente').length
+  const pend = novedades.filter(pendienteDeResolucion).length
 
   const meta = novTipoMeta(form.tipo)
 
@@ -62,10 +70,10 @@ export function Novedades() {
           {NOVEDAD_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
         </select>
         <select className="fs" value={filt.st} onChange={(e) => setFilt({ ...filt, st: e.target.value })}>
-          <option value="">Todo estado</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="aprobada">Aprobada</option>
-          <option value="rechazada">Rechazada</option>
+          <option value="">Toda situación</option>
+          <option value="pend">Pendientes de resolución</option>
+          <option value="ok">Autorizadas / justificadas</option>
+          <option value="no">Rechazadas</option>
         </select>
         <select className="fs" value={filt.org} onChange={(e) => setFilt({ ...filt, org: e.target.value })}>
           <option value="">Todo origen</option>
@@ -85,7 +93,7 @@ export function Novedades() {
                 <th>Fecha(s)</th>
                 <th>Cantidad</th>
                 <th>Origen</th>
-                <th>Estado <span className="cursor-help text-tm" data-tip="Pendiente: sin resolver. Aprobada: incluida en preliquidación. Rechazada: excluida.">ⓘ</span></th>
+                <th>Estado <span className="cursor-help text-tm" data-tip="Horas extra: requieren autorización para pagarse. Desvíos: registrados en firme; lo que se aprueba es la justificación (que los excluye del reporte).">ⓘ</span></th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -100,16 +108,17 @@ export function Novedades() {
                     <td className="text-[12px] text-t2">{dates}</td>
                     <td><strong>{n.qty}</strong></td>
                     <td><OrigenBadge org={n.org} /></td>
-                    <td><StatusBadge st={n.st} /></td>
+                    <td><NovStatusBadge n={n} /></td>
                     <td>
-                      {n.st === 'pendiente' ? (
-                        <div className="flex gap-1">
-                          <button className="btn-ok btn-sm" onClick={() => approve(n.id)}><IconCheck size={11} />Aprobar</button>
-                          <button className="btn-er btn-sm" onClick={() => reject(n.id)}><IconX size={11} />Rechazar</button>
-                        </div>
-                      ) : (
+                      <div className="flex gap-1">
                         <button className="btn-gh btn-sm" onClick={() => setDetId(n.id)}>Ver detalle</button>
-                      )}
+                        {pendienteDeResolucion(n) && (
+                          <>
+                            <button className="btn-ok btn-sm" onClick={() => resolver(n, true)}><IconCheck size={11} />{requiereAutorizacion(n.type) ? 'Autorizar' : 'Aprobar'}</button>
+                            <button className="btn-er btn-sm" onClick={() => resolver(n, false)}><IconX size={11} />Rechazar</button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -164,7 +173,22 @@ export function Novedades() {
       </Modal>
 
       {/* Detalle */}
-      <Modal open={detId != null} onClose={() => setDetId(null)} title="Detalle de Novedad" footer={<button className="btn-ol" onClick={() => setDetId(null)}>Cerrar</button>}>
+      <Modal
+        open={detId != null}
+        onClose={() => setDetId(null)}
+        title="Detalle de Novedad"
+        footer={
+          <>
+            <button className="btn-ol" onClick={() => setDetId(null)}>Cerrar</button>
+            {detNov && pendienteDeResolucion(detNov) && (
+              <>
+                <button className="btn-er" onClick={() => { resolver(detNov, false); setDetId(null) }}><IconX size={13} />Rechazar</button>
+                <button className="btn-ok" onClick={() => { resolver(detNov, true); setDetId(null) }}><IconCheck size={13} />{requiereAutorizacion(detNov.type) ? 'Autorizar' : 'Aprobar'}</button>
+              </>
+            )}
+          </>
+        }
+      >
         {detNov && <NovDetalle n={detNov} emp={gEmp(detNov.eId)!} />}
       </Modal>
     </div>
@@ -172,15 +196,17 @@ export function Novedades() {
 }
 
 function NovDetalle({ n, emp }: { n: Novedad; emp: import('../../types').Employee }) {
+  const esHE = requiereAutorizacion(n.type)
   const fields: [string, React.ReactNode][] = [
     ['Tipo', <span data-tip={novTip(n.type)}>{n.type}</span>],
     ['Origen', <OrigenBadge org={n.org} />],
-    ['Estado', <StatusBadge st={n.st} />],
+    [esHE ? 'Autorización' : 'Justificación', esHE ? <AutBadge st={n.st} /> : <JustBadge justSt={n.justSt} />],
     ['Cantidad', <strong>{n.qty}</strong>],
     ['Fecha inicio', fd(n.d1)],
     ['Fecha fin', fd(n.d2)],
     ['Observación', n.obs || '—'],
     ['Justificativo', n.just ? <a href={n.just} target="_blank" rel="noreferrer" className="text-pr">Ver documento →</a> : '—'],
+    ['Comentario del empleado', n.justObs || '—'],
     ['Resuelto por', n.resBy || '—'],
     ['Resuelto el', fd(n.resAt)],
   ]

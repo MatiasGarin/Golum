@@ -55,7 +55,7 @@ export function Login() {
             <div className="flex h-[44px] w-[44px] items-center justify-center rounded-[10px] bg-white shadow-[0_4px_12px_rgba(0,0,0,.2)]">
               <IconClock size={26} className="text-pr" strokeWidth={2.5} />
             </div>
-            <div className="text-[26px] font-extrabold tracking-[-.5px] text-white">GestRRHH</div>
+            <div className="text-[26px] font-extrabold tracking-[-.5px] text-white">Gestión de RRHH</div>
           </div>
           <p className="mb-[30px] text-center text-[13px] leading-normal text-white/75">
             Sistema de Gestión de Asistencia

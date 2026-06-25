@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useData } from '../store/DataContext'
 import { AppShell } from '../components/layout/AppShell'
+import { pendienteDeResolucion } from '../lib/novedad'
 import type { NavItem } from '../components/layout/Sidebar'
 import { IconHome, IconUsers, IconClock, IconFileText, IconBell, IconBarChart } from '../components/ui/icons'
 
@@ -8,7 +9,7 @@ export function AdminLayout() {
   const { currentUser, novedades } = useData()
   if (!currentUser || currentUser.role !== 'admin') return <Navigate to="/login" replace />
 
-  const pend = novedades.filter((n) => n.st === 'pendiente').length
+  const pend = novedades.filter(pendienteDeResolucion).length
 
   const items: NavItem[] = [
     { to: '/admin/dashboard', label: 'Dashboard', icon: <IconHome size={15} />, section: 'Principal' },

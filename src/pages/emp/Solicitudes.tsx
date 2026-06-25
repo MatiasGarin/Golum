@@ -3,6 +3,7 @@ import { useData } from '../../store/DataContext'
 import { useToast } from '../../store/ToastContext'
 import { EMP_ID } from '../../data/seed'
 import { fd } from '../../lib/format'
+import { esJustificable } from '../../lib/novedad'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { IconFileText, IconCalendar } from '../../components/ui/icons'
@@ -12,22 +13,28 @@ type SolType = 'just' | 'lic' | null
 const LIC_TIPOS = ['Médica', 'Examen', 'Maternidad / Paternidad', 'Fallecimiento familiar', 'Casamiento', 'Vacaciones anticipadas', 'Otro']
 
 export function Solicitudes() {
-  const { novedades, solicitudes, addSolicitudJustificativo, addSolicitudLicencia } = useData()
+  const { novedades, solicitudes, pedirJustificacion, addSolicitudLicencia } = useData()
   const toast = useToast()
   const [solType, setSolType] = useState<SolType>(null)
   // form fields
   const [licTipo, setLicTipo] = useState('Médica')
   const [fi, setFi] = useState('')
   const [ff, setFf] = useState('')
+  // justificativo
+  const [selNov, setSelNov] = useState<number | null>(null)
+  const [justDoc, setJustDoc] = useState('')
+  const [justObs, setJustObs] = useState('')
 
+  // Desvíos del empleado que todavía puede justificar (sin justificar o rechazados).
   const justNovs = novedades.filter(
-    (n) => n.eId === EMP_ID && (n.type === 'Tardanza' || n.type === 'Ausencia injustificada') && (n.st === 'pendiente' || n.st === 'rechazada'),
+    (n) => n.eId === EMP_ID && esJustificable(n.type) && (!n.justSt || n.justSt === 'rechazada'),
   )
   const myReqs = solicitudes.filter((s) => s.eId === EMP_ID).sort((a, b) => b.sentAt.localeCompare(a.sentAt))
 
   const open = (t: 'just' | 'lic') => {
     setSolType(t)
     if (t === 'lic') { setLicTipo('Médica'); setFi(''); setFf('') }
+    else { setSelNov(justNovs[0]?.id ?? null); setJustDoc(''); setJustObs('') }
   }
 
   const save = () => {
@@ -37,8 +44,9 @@ export function Solicitudes() {
       addSolicitudLicencia(licTipo, fi, ff)
       toast('Solicitud de licencia enviada correctamente.', 'ok')
     } else {
-      addSolicitudJustificativo()
-      toast('Justificativo enviado correctamente.', 'ok')
+      if (!selNov) { toast('No tenés desvíos disponibles para justificar.', 'er'); return }
+      pedirJustificacion(selNov, justDoc || null, justObs || null)
+      toast('Justificativo enviado. Queda pendiente de aprobación del admin.', 'ok')
     }
     setSolType(null)
   }
@@ -58,7 +66,7 @@ export function Solicitudes() {
           onClick={() => open('just')}
           icon={<IconFileText size={24} />}
           name="Justificativo de tardanza o ausencia"
-          desc="Adjuntá documentación para una novedad pendiente o rechazada"
+          desc="Adjuntá documentación para excluir un desvío del reporte"
         />
         <SolCard
           selected={solType === 'lic'}
@@ -126,18 +134,18 @@ export function Solicitudes() {
         ) : (
           <>
             <div className="fg">
-              <label className="fl">Novedad a justificar <span className="cursor-help text-tm" data-tip="Seleccioná la novedad pendiente o rechazada a la cual querés adjuntar documentación.">ⓘ</span></label>
-              <select className="fsel">
-                {justNovs.map((n) => (<option key={n.id} value={n.id}>{n.type} — {fd(n.d1)} ({n.st})</option>))}
-                {justNovs.length === 0 && <option disabled>Sin novedades disponibles</option>}
+              <label className="fl">Desvío a justificar <span className="cursor-help text-tm" data-tip="Seleccioná el desvío registrado al que querés adjuntar documentación. Si se aprueba, se excluye del reporte.">ⓘ</span></label>
+              <select className="fsel" value={selNov ?? ''} onChange={(e) => setSelNov(e.target.value ? +e.target.value : null)} disabled={justNovs.length === 0}>
+                {justNovs.map((n) => (<option key={n.id} value={n.id}>{n.type} — {fd(n.d1)} · {n.qty}{n.justSt === 'rechazada' ? ' (reintento)' : ''}</option>))}
+                {justNovs.length === 0 && <option value="">Sin desvíos disponibles para justificar</option>}
               </select>
             </div>
             <div className="fg">
               <label className="fl">Tipo de justificativo</label>
               <select className="fsel"><option>Certificado médico</option><option>Acta / documento oficial</option><option>Otro</option></select>
             </div>
-            <div className="fg"><label className="fl">URL del archivo adjunto</label><input className="fin" type="url" placeholder="https://drive.google.com/..." /></div>
-            <div className="fg"><label className="fl">Comentario (opcional)</label><input className="fin" placeholder="Explicación adicional..." /></div>
+            <div className="fg"><label className="fl">URL del archivo adjunto</label><input className="fin" type="url" placeholder="https://drive.google.com/..." value={justDoc} onChange={(e) => setJustDoc(e.target.value)} /></div>
+            <div className="fg"><label className="fl">Comentario (opcional)</label><input className="fin" placeholder="Explicación adicional..." value={justObs} onChange={(e) => setJustObs(e.target.value)} /></div>
           </>
         )}
       </Modal>
