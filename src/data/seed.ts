@@ -11,15 +11,16 @@ export const EMPS: Employee[] = [
   { id: 2, name: 'Gómez, Carlos', ini: 'CG', email: 'cgomez@empresa.com', leg: '002', role: 'empleado', st: 'activo', sid: 1, av: 2 },
   { id: 3, name: 'López, Ana', ini: 'AL', email: 'alopez@empresa.com', leg: '003', role: 'empleado', st: 'activo', sid: 2, av: 3 },
   { id: 4, name: 'Martínez, Diego', ini: 'DM', email: 'dmartinez@empresa.com', leg: '004', role: 'empleado', st: 'activo', sid: 3, av: 4 },
-  { id: 5, name: 'Fernández, Laura', ini: 'LF', email: 'lfernandez@empresa.com', leg: '005', role: 'empleado', st: 'activo', sid: 1, av: 5 },
+  { id: 5, name: 'Fernández, Laura', ini: 'LF', email: 'lfernandez@empresa.com', leg: '005', role: 'empleado', st: 'activo', sid: 4, av: 5 },
   { id: 6, name: 'Pérez, Juan', ini: 'JP', email: 'jperez@empresa.com', leg: '006', role: 'empleado', st: 'activo', sid: 3, av: 6 },
   { id: 7, name: 'Suárez, Roberto', ini: 'RS', email: 'rsuarez@estudios.com', leg: '—', role: 'contador', st: 'activo', sid: null, av: 1 },
 ]
 
 export const SHIFTS: Shift[] = [
-  { id: 1, name: 'Turno Mañana', entry: '08:00', exit: '16:00', days: [1, 2, 3, 4, 5], tolE: 5, tolS: 10, heT: 30, bk: 30 },
-  { id: 2, name: 'Turno Tarde', entry: '14:00', exit: '22:00', days: [1, 2, 3, 4, 5], tolE: 5, tolS: 10, heT: 30, bk: 30 },
-  { id: 3, name: 'Turno Administrativo', entry: '09:00', exit: '18:00', days: [1, 2, 3, 4, 5], tolE: 10, tolS: 10, heT: 30, bk: 60 },
+  { id: 1, kind: 'fijo', name: 'Turno Mañana', st: 'activo', days: [1, 2, 3, 4, 5], bk: 30, entry: '08:00', exit: '16:00', tolE: 5, tolS: 10, heT: 30 },
+  { id: 2, kind: 'rotativo', name: 'Turno Tarde (rotativo)', st: 'activo', days: [1, 2, 3, 4, 5], bk: 30, entry: '14:00', exit: '22:00', tolE: 5, tolS: 10, heT: 30, periodStart: '2026-06-01', periodEnd: '2026-06-30' },
+  { id: 3, kind: 'fijo', name: 'Turno Prueba (Noche)', st: 'activo', days: [1, 2, 3, 4, 5], bk: 10, entry: '19:00', exit: '23:50', tolE: 5, tolS: 5, heT: 30 },
+  { id: 4, kind: 'flexible', name: 'Jornada Flexible', st: 'activo', days: [1, 2, 3, 4, 5], bk: 30, windowStart: '07:00', windowEnd: '20:00', hours: 8 },
 ]
 
 export const FICHADAS: Fichada[] = [
@@ -87,7 +88,6 @@ export const FICHADAS: Fichada[] = [
   { id: 138, eId: 6, type: 'entrada', dt: '2026-06-15 09:00', org: 'biométrico' }, { id: 139, eId: 6, type: 'salida', dt: '2026-06-15 18:14', org: 'biométrico' },
   { id: 140, eId: 6, type: 'entrada', dt: '2026-06-16 09:10', org: 'biométrico' }, { id: 141, eId: 6, type: 'salida', dt: '2026-06-16 18:00', org: 'biométrico' },
   { id: 142, eId: 6, type: 'entrada', dt: '2026-06-17 09:00', org: 'biométrico' }, { id: 143, eId: 6, type: 'salida', dt: '2026-06-17 18:00', org: 'biométrico' },
-  { id: 144, eId: 6, type: 'entrada', dt: '2026-06-18 09:00', org: 'biométrico' },
 ]
 
 export const NOVEDADES: Novedad[] = [

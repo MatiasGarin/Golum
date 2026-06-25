@@ -7,6 +7,7 @@ import { RoleBadge, StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { IconPlus, IconEdit, IconXCircle, IconCheck } from '../../components/ui/icons'
 import type { Employee, Role } from '../../types'
+import { shiftSummary } from '../../lib/format'
 
 export function Usuarios() {
   const { emps, shifts, gShift, toggleUser } = useData()
@@ -103,7 +104,7 @@ export function Usuarios() {
                         <>
                           {sh.name}
                           <br />
-                          <span className="text-tm">{sh.entry}–{sh.exit}</span>
+                          <span className="text-tm">{shiftSummary(sh)}</span>
                         </>
                       ) : (
                         <span className="text-tm">—</span>
@@ -171,7 +172,7 @@ export function Usuarios() {
           </label>
           <select className="fsel" value={form.sid} onChange={(e) => setForm({ ...form, sid: +e.target.value })}>
             {shifts.map((s) => (
-              <option key={s.id} value={s.id}>{s.name} ({s.entry}–{s.exit})</option>
+              <option key={s.id} value={s.id}>{s.name} ({shiftSummary(s)})</option>
             ))}
           </select>
         </div>

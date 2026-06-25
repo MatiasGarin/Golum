@@ -1,6 +1,29 @@
 // Date / formatting helpers ported from mockup.html utils.
 
+import type { FichType, Shift, ShiftKind } from '../types'
+
 export const p2 = (n: number) => String(n).padStart(2, '0')
+
+/** Etiqueta legible del tipo de horario. */
+export const shiftKindLabel = (k: ShiftKind): string =>
+  ({ fijo: 'Fijo', rotativo: 'Rotativo', flexible: 'Flexible' })[k]
+
+/** Resumen corto de la franja horaria según el tipo. Ej: "08:00–16:00", "Flexible · 8h en 07:00–20:00". */
+export function shiftSummary(s: Shift): string {
+  if (s.kind === 'flexible') return `${s.hours}h en ${s.windowStart}–${s.windowEnd}`
+  return `${s.entry}–${s.exit}`
+}
+
+/** Etiqueta (con flecha/ícono) y color de badge para cada tipo de fichada. */
+export function fichTypeMeta(t: FichType): { label: string; color: 'gn' | 'rd' | 'am' | 'bl' | 'pu' | 'gy' } {
+  const map = {
+    entrada: { label: '↗ Entrada', color: 'bl' },
+    salida: { label: '↙ Salida', color: 'gn' },
+    'inicio-descanso': { label: '⏸ Inicio descanso', color: 'am' },
+    'fin-descanso': { label: '▶ Fin descanso', color: 'pu' },
+  } as const
+  return map[t]
+}
 
 /** "2026-06-18" -> "18/06/2026"; null/empty -> "—" */
 export const fd = (d: string | null | undefined): string => {

@@ -12,19 +12,26 @@ import type { ResRow } from '../../types'
 
 const STEPS = ['Revisar fichadas', 'Validar novedades', 'Generar resumen', 'Exportar']
 
+type PeriodState = 'pendiente' | 'borrador' | 'cerrado'
+
 export function Cierre() {
   const { novedades, gEmp } = useData()
   const toast = useToast()
   const confirm = useConfirm()
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  // Estado del período Junio 2026 (espeja CierreMensual.estado: borrador → cerrado).
+  const [periodState, setPeriodState] = useState<PeriodState>('pendiente')
 
   const pend = novedades.filter((n) => n.st === 'pendiente' && n.d1.startsWith('2026-06')).length
+  const generado = periodState !== 'pendiente'
+  const cerrado = periodState === 'cerrado'
 
-  // step states: 0 done, 1 act|done, 2 act when no pending, 3 pending
+  // Pasos: Revisar (done) → Validar (según pendientes) → Generar resumen → Exportar.
   const stepState = (i: number): 'done' | 'act' | '' => {
     if (i === 0) return 'done'
     if (i === 1) return pend > 0 ? 'act' : 'done'
-    if (i === 2) return pend === 0 ? 'act' : ''
+    if (i === 2) return generado ? 'done' : 'act'
+    if (i === 3) return cerrado ? 'done' : generado ? 'act' : ''
     return ''
   }
 
@@ -35,7 +42,14 @@ export function Cierre() {
       return next
     })
 
+  const generar = () => {
+    setPeriodState('borrador')
+    if (pend > 0) toast(`Resumen generado (borrador). Atención: ${pend} novedades pendientes sin resolver.`, 'wa')
+    else toast('Resumen de Junio 2026 generado correctamente (borrador).', 'ok')
+  }
+
   const dlCSV = () => {
+    if (!generado) return
     const rows: (string | number)[][] = [['Empleado', 'Legajo', 'Días Trab.', 'Ausencias', 'Tard. (min)', 'HE 50% (min)', 'HE 100% (min)']]
     JUN_RES.forEach((r) => {
       const e = gEmp(r.eId)!
@@ -52,7 +66,10 @@ export function Cierre() {
         ? `Hay ${pend} novedades pendientes. ¿Igualmente enviar y cerrar el período? Esta acción es irreversible.`
         : '¿Enviar al contador y cerrar el período de Junio 2026? Esta acción es irreversible.',
       type: 'danger',
-      cb: () => toast('Período cerrado y enviado al contador correctamente.', 'ok'),
+      cb: () => {
+        setPeriodState('cerrado')
+        toast('Período cerrado y enviado al contador correctamente.', 'ok')
+      },
     })
 
   return (
@@ -82,7 +99,7 @@ export function Cierre() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-[18px] min-[900px]:grid-cols-[270px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-[18px] min-[900px]:grid-cols-[300px_1fr]">
         {/* LEFT */}
         <div>
           <div className="card mb-[14px]">
@@ -91,15 +108,47 @@ export function Cierre() {
               <div className="fg">
                 <label className="fl">Mes / Año</label>
                 <select className="fsel">
-                  <option>Junio 2026 (en curso)</option>
+                  <option>{cerrado ? 'Junio 2026 ✅ Cerrado' : 'Junio 2026 (en curso)'}</option>
                   <option>Mayo 2026 ✅ Cerrado</option>
                 </select>
               </div>
-              <button className="btn-pr w-full" onClick={() => toast('Resumen de Junio 2026 generado correctamente.', 'ok')}>
-                <IconActivity size={13} />Generar resumen
+              <button className="btn-pr w-full disabled:cursor-not-allowed disabled:opacity-50" onClick={generar} disabled={cerrado}>
+                <IconActivity size={13} />{generado ? 'Regenerar resumen' : 'Generar resumen'}
               </button>
+              <div className="mt-[7px] text-[11px] text-tm">
+                {cerrado
+                  ? 'Período cerrado: el resumen es un snapshot inmutable.'
+                  : generado
+                    ? 'Borrador generado. Podés regenerarlo o exportarlo abajo.'
+                    : 'Consolida la preliquidación del período. Habilita la exportación.'}
+              </div>
             </div>
           </div>
+
+          {/* Exportar: se abre debajo de "Generar resumen" una vez generado el borrador. */}
+          {generado && (
+            <div className="card mb-[14px]">
+              <div className="ch"><span className="cht">Exportar al contador</span></div>
+              <div className="p-[14px]">
+                <div className="fg">
+                  <label className="fl">Formato</label>
+                  <select className="fsel"><option>CSV (.csv)</option><option>Excel (.xlsx)</option></select>
+                </div>
+                <div className="fg">
+                  <label className="fl">Email del contador</label>
+                  <input className="fin" type="email" defaultValue="contador@estudiocontable.com" />
+                </div>
+                <div className="flex gap-[7px]">
+                  <button className="btn-ol flex-1" onClick={dlCSV} title="Descargar CSV sin cerrar el período">
+                    <IconDownload size={13} />Descargar
+                  </button>
+                  <button className="btn-pr flex-1 disabled:cursor-not-allowed disabled:opacity-50" onClick={confClose} disabled={cerrado} title={cerrado ? 'El período ya está cerrado' : 'Acción irreversible: cierra y envía al contador'}>
+                    <IconSend size={13} />{cerrado ? 'Cerrado' : 'Cerrar y enviar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="card mb-[14px]">
             <div className="ch"><span className="cht">Estado del período</span></div>
@@ -109,7 +158,9 @@ export function Cierre() {
               <EstadoRow label="Empleados en el período" color="bl" value="5" />
               <div className="flex items-center justify-between py-[7px] text-[13px]">
                 <span className="text-t2">Estado</span>
-                <Badge color="am">En curso</Badge>
+                <Badge color={cerrado ? 'gn' : generado ? 'bl' : 'am'}>
+                  {cerrado ? 'Cerrado' : generado ? 'Borrador' : 'En curso'}
+                </Badge>
               </div>
             </div>
           </div>
@@ -121,23 +172,6 @@ export function Cierre() {
             <CheckItem ok label="Empleados con actividad" detail="5 de 5" />
           </div>
 
-          <div className="card">
-            <div className="ch"><span className="cht">Exportar al contador</span></div>
-            <div className="p-[14px]">
-              <div className="fg">
-                <label className="fl">Formato</label>
-                <select className="fsel"><option>CSV (.csv)</option><option>Excel (.xlsx)</option></select>
-              </div>
-              <div className="fg">
-                <label className="fl">Email del contador</label>
-                <input className="fin" type="email" defaultValue="contador@estudiocontable.com" />
-              </div>
-              <div className="flex gap-[7px]">
-                <button className="btn-ol flex-1" onClick={dlCSV}><IconDownload size={13} />Descargar</button>
-                <button className="btn-pr flex-1" onClick={confClose}><IconSend size={13} />Enviar y cerrar</button>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* RIGHT */}
@@ -167,7 +201,7 @@ export function Cierre() {
 
           <div className="card">
             <div className="ch">
-              <span className="cht">Junio 2026 <Badge color="am" className="ml-[6px]">En curso · hasta 18/06/2026</Badge></span>
+              <span className="cht">Junio 2026 <Badge color={cerrado ? 'gn' : generado ? 'bl' : 'am'} className="ml-[6px]">{cerrado ? '✅ Cerrado — enviado al contador' : generado ? 'Borrador generado' : 'En curso · hasta 18/06/2026'}</Badge></span>
               <span className="text-[11px] text-tm">Solo novedades no rechazadas</span>
             </div>
             <div className="tw">

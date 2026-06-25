@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useData } from '../../store/DataContext'
 import { useToast } from '../../store/ToastContext'
 import { TODAY } from '../../data/seed'
-import { fd } from '../../lib/format'
+import { fd, fichTypeMeta } from '../../lib/format'
 import { Avatar } from '../../components/ui/Avatar'
 import { Badge, FichOrigenBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
@@ -90,7 +90,7 @@ export function Fichadas() {
                     </td>
                     <td><code className="rounded bg-bg px-[6px] py-[2px] text-[12px]">{e.leg}</code></td>
                     <td>{fd(date)} <strong>{time}</strong></td>
-                    <td><Badge color={f.type === 'entrada' ? 'bl' : 'gn'}>{f.type === 'entrada' ? '↗ Entrada' : '↙ Salida'}</Badge></td>
+                    <td><Badge color={fichTypeMeta(f.type).color}>{fichTypeMeta(f.type).label}</Badge></td>
                     <td><FichOrigenBadge org={f.org} /></td>
                     <td>{tard ? <Badge color="am">tardanza {tard.qty}</Badge> : <span className="text-[12px] text-tm">—</span>}</td>
                   </tr>

@@ -1,0 +1,3 @@
+# SPA fallback: cualquier ruta que no sea un archivo real devuelve index.html
+# con status 200, para que React Router maneje el ruteo del lado del cliente.
+/*    /index.html   200
